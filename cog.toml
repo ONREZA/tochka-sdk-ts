@@ -1,0 +1,19 @@
+from_latest_tag = false
+generate_mono_repository_global_tag = false
+branch_whitelist = ["main"]
+
+pre_bump_hooks = []
+post_bump_hooks = []
+
+[commit_types]
+feat = { changelog_title = "✨ Features" }
+fix = { changelog_title = "🐛 Bug Fixes" }
+perf = { changelog_title = "⚡ Performance" }
+docs = { changelog_title = "📚 Documentation" }
+refactor = { changelog_title = "♻️ Changed" }
+style = { changelog_title = "🎨 Changed" }
+chore = { changelog_title = "🔧 Changed" }
+ci = { changelog_title = "👷 CI/CD" }
+test = { changelog_title = "✅ Testing" }
+build = { changelog_title = "🔧 Build" }
+revert = { changelog_title = "⏪ Reverted" }

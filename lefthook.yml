@@ -1,0 +1,19 @@
+commit-msg:
+  commands:
+    cocogitto:
+      run: cog verify --file {1}
+
+pre-commit:
+  parallel: false
+  commands:
+    biome:
+      run: bun run lint
+      glob: "**/*.{ts,tsx,js,json,jsonc}"
+
+pre-push:
+  parallel: false
+  commands:
+    test:
+      run: bun test
+    typecheck:
+      run: bun run typecheck

@@ -1,0 +1,51 @@
+{
+  "$schema": "node_modules/onreza-release/schema.json",
+  "projectType": "node",
+  "git": {
+    "commitMessage": "chore(release): v{{version}} [skip ci]",
+    "tagMessage": "Release v{{version}}",
+    "push": true,
+    "skipHooks": true
+  },
+  "changelog": {
+    "types": {
+      "feat": "✨ Features",
+      "fix": "🐛 Bug Fixes",
+      "perf": "⚡ Performance",
+      "docs": "📚 Documentation",
+      "refactor": "♻️ Changed",
+      "style": "🎨 Changed",
+      "chore": "🔧 Changed",
+      "ci": "👷 CI/CD",
+      "test": "✅ Testing"
+    },
+    "showHash": true,
+    "showAuthor": false
+  },
+  "versioning": {
+    "tagPrefix": "v",
+    "preMajorMode": "auto"
+  },
+  "release": {
+    "enabled": true,
+    "platform": "github",
+    "checkExisting": true
+  },
+  "commitlint": {
+    "output": "commitlint.config.js",
+    "format": "js",
+    "scopes": ["core", "auth", "webhooks", "pay-gateway", "modules", "transport", "types", "deps", "ci", "release", "tests", "spec"]
+  },
+  "monorepo": {
+    "enabled": true,
+    "packages": [
+      {
+        "name": "tochka-sdk",
+        "path": "packages/tochka-sdk",
+        "packageName": "@onreza/tochka-sdk",
+        "tagPrefix": "v",
+        "projectType": "node"
+      }
+    ]
+  }
+}

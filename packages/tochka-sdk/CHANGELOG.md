@@ -1,3 +1,3 @@
-# @onreza/tochka-sdk
+# Changelog
 
-Changelog ведётся автоматически через [Changesets](https://github.com/changesets/changesets).
+Changelog ведётся автоматически через [onreza-release](https://gitverse.ru/onreza/release-tool) на основе [Conventional Commits](https://www.conventionalcommits.org/).

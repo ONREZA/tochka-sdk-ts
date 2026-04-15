@@ -1,13 +1,13 @@
 {
 	"name": "@onreza/tochka-sdk",
-	"version": "0.1.0",
+	"version": "0.0.0",
 	"description": "Типизированный TypeScript SDK для API Точка Банка",
 	"type": "module",
 	"license": "MIT",
-	"author": "onreza",
+	"author": "ONREZA",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/onreza/tochka-sdk-ts.git",
+		"url": "https://github.com/ONREZA/tochka-sdk-ts.git",
 		"directory": "packages/tochka-sdk"
 	},
 	"keywords": ["tochka", "tochka-bank", "sbp", "open-banking", "sdk", "typescript"],

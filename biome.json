@@ -56,7 +56,9 @@
 			"docs",
 			"specs",
 			"coverage",
-			".changeset"
+			".changeset",
+			".onrezarelease.jsonc",
+			"commitlint.config.js"
 		]
 	}
 }

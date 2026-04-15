@@ -6,16 +6,18 @@
 
 - [Bun](https://bun.sh) — рантайм и test-раннер
 - Node 18+ (для проверки совместимости, опционально)
+- [cocogitto](https://github.com/cocogitto/cocogitto) для локальной валидации коммитов (опционально, но рекомендуется): `cargo install cocogitto`
+- `lefthook` ставится автоматически через `bun install`
 
 ## Старт
 
 ```bash
-bun install
-bun run gen        # генерация типов из specs/openapi.json
-bun run build      # сборка пакета
-bun test           # 102+ unit-тестов
-bun run lint       # biome
-bun run typecheck  # tsc --noEmit
+bun install          # + ставит git hooks через lefthook
+bun run gen          # генерация типов из specs/openapi.json
+bun run build        # сборка пакета
+bun test             # unit-тесты
+bun run lint         # biome
+bun run typecheck    # tsc --noEmit
 ```
 
 ## Структура
@@ -38,23 +40,37 @@ specs/              # OpenAPI слепок
 ## Правила
 
 - **Комментарии минимальны.** Только там, где объясняют неочевидный *why*. Комментарии вида «added for issue #X» — comment rot, удаляются.
-- **Никакого "Generated with Claude Code"** в коммитах и PR-описаниях.
 - **Generated код не трогаем руками** — всё в `src/_generated/`. При изменении спецификации: `bun run spec:fetch && bun run gen`.
-- **Changesets для релизов:** на каждое изменение публичного API добавляй changeset (`bun run changeset`).
+- **Conventional Commits обязательны.** Lefthook + cocogitto проверяют формат при коммите. В CI дополнительно `cog check` на всех коммитах PR.
+
+Примеры валидных сообщений:
+
+```
+feat(modules): add paginate async iterator for statements
+fix(auth): refresh race when token expires during retry
+docs: clarify OAuth multi-tenant setup in README
+chore(deps): bump jose to 5.11.0
+feat(webhooks)!: split WebhookVerificationError into typed subclasses
+```
 
 ## Workflow изменений
 
-1. Fork / ветка от `main`.
-2. Код + тесты + changeset.
+1. Ветка от `main`.
+2. Код + тесты + conventional commits.
 3. `bun run lint && bun run typecheck && bun test && bun run build` должны пройти.
-4. PR в `main`. CI прогонит всё ещё раз + проверит что generated types in-sync.
+4. PR в `main`. CI прогонит всё ещё раз + проверит что generated types in-sync + провалидирует коммиты.
 
 ## Релизы
 
-Управляются через [Changesets](https://github.com/changesets/changesets) + GitHub Actions:
+Управляются через [onreza-release](https://gitverse.ru/onreza/release-tool):
 
-- Мердж PR в `main` → workflow создаёт **Release PR** с bump версий.
-- Мердж Release PR → публикация в npm (`NPM_TOKEN` secret).
+- Вручную запустить workflow **Release** (`workflow_dispatch`) в GitHub Actions.
+- `onreza-release` на основе conventional-commits:
+  - определит следующую версию (feat → minor, fix → patch, feat! → major);
+  - обновит `packages/tochka-sdk/package.json`, `CHANGELOG.md`;
+  - создаст commit и тег `v{version}`;
+  - запушит и создаст GitHub Release.
+- Второй job `publish` публикует пакет в npm через **trusted publishing** (OIDC, без `NPM_TOKEN`).
 
 ## Обновление OpenAPI-спеки
 

@@ -34,3 +34,20 @@ jobs:
       - run: bun run typecheck
       - run: bun run test
       - run: bun run build
+
+  commitlint:
+    name: Lint Commit Messages
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install cocogitto
+        uses: cocogitto/cocogitto-action@v3
+        with:
+          check-latest-tag-only: false
+
+      - name: Verify commits
+        run: cog check --from-latest-tag || cog check
