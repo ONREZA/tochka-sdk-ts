@@ -4,9 +4,9 @@
 	"type": "module",
 	"workspaces": ["packages/*"],
 	"scripts": {
-		"build": "bun --filter '*' run build",
-		"test": "bun --filter '*' run test",
-		"typecheck": "bun --filter '*' run typecheck",
+		"build": "bun --filter='@onreza/*' run build",
+		"test": "bun --filter='@onreza/*' run test",
+		"typecheck": "bun --filter='@onreza/*' run typecheck",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
 		"format": "biome format --write .",
