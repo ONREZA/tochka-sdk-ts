@@ -1,0 +1,32 @@
+{
+	"name": "tochka-sdk-ts",
+	"private": true,
+	"type": "module",
+	"workspaces": ["packages/*"],
+	"scripts": {
+		"build": "bun --filter '*' run build",
+		"test": "bun --filter '*' run test",
+		"typecheck": "bun --filter '*' run typecheck",
+		"lint": "biome check .",
+		"lint:fix": "biome check --write .",
+		"format": "biome format --write .",
+		"gen": "bun tools/gen.ts",
+		"spec:fetch": "bun tools/fetch-spec.ts",
+		"spec:diff": "bun tools/diff.ts",
+		"spec:sync": "bun tools/sync.ts",
+		"changeset": "changeset",
+		"version": "changeset version",
+		"release": "bun run build && changeset publish"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^1.9.4",
+		"@changesets/changelog-github": "^0.5.0",
+		"@changesets/cli": "^2.27.9",
+		"@types/bun": "latest",
+		"openapi-typescript": "^7.4.4",
+		"typescript": "^5.6.3"
+	},
+	"engines": {
+		"node": ">=18"
+	}
+}

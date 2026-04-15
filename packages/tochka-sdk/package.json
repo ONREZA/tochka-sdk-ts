@@ -1,0 +1,80 @@
+{
+	"name": "@onreza/tochka-sdk",
+	"version": "0.1.0",
+	"description": "Типизированный TypeScript SDK для API Точка Банка",
+	"type": "module",
+	"license": "MIT",
+	"author": "onreza",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/onreza/tochka-sdk-ts.git",
+		"directory": "packages/tochka-sdk"
+	},
+	"keywords": ["tochka", "tochka-bank", "sbp", "open-banking", "sdk", "typescript"],
+	"engines": {
+		"node": ">=18"
+	},
+	"sideEffects": false,
+	"main": "./dist/index.cjs",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"import": {
+				"types": "./dist/index.d.ts",
+				"default": "./dist/index.js"
+			},
+			"require": {
+				"types": "./dist/index.d.cts",
+				"default": "./dist/index.cjs"
+			}
+		},
+		"./webhooks": {
+			"import": {
+				"types": "./dist/webhooks.d.ts",
+				"default": "./dist/webhooks.js"
+			},
+			"require": {
+				"types": "./dist/webhooks.d.cts",
+				"default": "./dist/webhooks.cjs"
+			}
+		},
+		"./pay-gateway": {
+			"import": {
+				"types": "./dist/pay-gateway.d.ts",
+				"default": "./dist/pay-gateway.js"
+			},
+			"require": {
+				"types": "./dist/pay-gateway.d.cts",
+				"default": "./dist/pay-gateway.cjs"
+			}
+		},
+		"./errors": {
+			"import": {
+				"types": "./dist/errors.d.ts",
+				"default": "./dist/errors.js"
+			},
+			"require": {
+				"types": "./dist/errors.d.cts",
+				"default": "./dist/errors.cjs"
+			}
+		},
+		"./package.json": "./package.json"
+	},
+	"files": ["dist", "README.md", "LICENSE"],
+	"scripts": {
+		"build": "tsup",
+		"dev": "tsup --watch",
+		"test": "bun test",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"jose": "^5.9.6",
+		"openapi-fetch": "^0.13.4"
+	},
+	"devDependencies": {
+		"@types/bun": "latest",
+		"tsup": "^8.3.5",
+		"typescript": "^5.6.3"
+	}
+}
