@@ -3,6 +3,3 @@ exact = false
 
 [install.cache]
 disable = false
-
-[test]
-preload = []
