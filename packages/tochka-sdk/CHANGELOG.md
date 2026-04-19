@@ -2,6 +2,8 @@
 
 Changelog ведётся автоматически через [onreza-release](https://gitverse.ru/onreza/release-tool) на основе [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.1.1] - 2026-04-19
+
 ## [0.1.0] - 2026-04-15
 
 ### ✨ Features
