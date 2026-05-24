@@ -13,6 +13,8 @@ permissions:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    env:
+      LEFTHOOK: 0
     steps:
       - uses: actions/checkout@v4
 
