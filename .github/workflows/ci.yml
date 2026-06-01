@@ -14,7 +14,7 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -40,14 +40,14 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - name: Install cocogitto
-        uses: cocogitto/cocogitto-action@v3
-        with:
-          check-latest-tag-only: false
-
       - name: Verify commits
-        run: cog check --from-latest-tag || cog check
+        # Lint only the commits introduced by this PR, not pre-existing history
+        # on the base branch (which may predate Conventional Commits enforcement).
+        uses: cocogitto/cocogitto-action@v4
+        with:
+          command: check
+          args: ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}
