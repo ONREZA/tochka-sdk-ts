@@ -26,11 +26,16 @@ export { createBodySigner } from "./signature.js";
 export type { BodySigner, PrivateKeyInput } from "./signature.js";
 export {
 	PayGatewayPaymentsModule,
+	type CardPaymentMethod,
+	type CompletePaymentRequest,
 	type CreatePaymentRequest,
 	type PayGatewayOperation,
 	type PayGatewayPaymentMethod,
 	type RefundRequest,
 	type SbpTokenPaymentMethod,
+	type ThreeDsRequirement,
+	type TokenizationCredentials,
+	type TokenizationCredentialsType,
 } from "./payments.js";
 export {
 	PayGatewaySbpFunctionalLinksModule,
