@@ -33,15 +33,16 @@ export interface PayGatewayClientOptions {
 	retry?: Partial<RetryOptions> | false;
 	/**
 	 * HTTP-методы + пути (regexp или строка), для которых SDK обязан подписать тело.
-	 * По умолчанию — `POST /create-payment`, `/create-capture`, `/create-refund`.
+	 * По умолчанию — создание платежа (`POST .../payments`), подтверждение
+	 * (`POST .../payments/{id}/capture`) и возврат (`POST .../refunds`).
 	 */
 	signedPaths?: Array<string | RegExp>;
 }
 
 export const DEFAULT_SIGNED_PATHS: Array<string | RegExp> = [
-	/\/create-payment(\b|$)/,
-	/\/create-capture(\b|$)/,
-	/\/create-refund(\b|$)/,
+	/\/payments(?:\?|$)/,
+	/\/capture(?:\?|$)/,
+	/\/refunds(?:\?|$)/,
 ];
 
 export class PayGatewayClient {
@@ -79,7 +80,7 @@ export class PayGatewayClient {
 	 * Низкоуровневый запрос. Подпись Signature добавляется автоматически для
 	 * путей из `signedPaths`.
 	 *
-	 * **Идемпотентность:** для подписанных путей (`create-payment` и пр.) SDK
+	 * **Идемпотентность:** для подписанных путей (`.../payments` и пр.) SDK
 	 * НЕ ретраит на сетевую ошибку — повтор без server-side идемпотентности
 	 * опасен. Передавайте стабильный `orderUid`/`agentRefundRequestId` в body,
 	 * если хотите повторять вручную.
