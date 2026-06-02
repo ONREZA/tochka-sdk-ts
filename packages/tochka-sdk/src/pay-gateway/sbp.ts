@@ -42,8 +42,8 @@ export interface CreateSbpFunctionalLinkRequest {
 }
 
 /**
- * Ответ на регистрацию Функциональной ссылки. Поля расширяемы — Точка не
- * публикует OpenAPI для pay-gateway; ответы отдаются плоско, без обёртки `Data`.
+ * Ответ на регистрацию Функциональной ссылки. Поля приходят внутри конверта
+ * `{ Data, Links, Meta }` и разворачиваются клиентом (см. `PayGatewayClient`).
  */
 export interface CreateSbpFunctionalLinkResponse {
 	qrcId?: string;
@@ -80,7 +80,7 @@ export interface SbpTokenizationResult {
 export class PayGatewaySbpFunctionalLinksModule {
 	constructor(private readonly client: PayGatewayClient) {}
 
-	/** Регистрация Функциональной ссылки СБП. Тело уходит плоско, без `Data`. */
+	/** Регистрация Функциональной ссылки СБП. Возвращает `qrcId` и `payload`. */
 	create(body: CreateSbpFunctionalLinkRequest): Promise<CreateSbpFunctionalLinkResponse> {
 		const { siteUid, extra, ...rest } = body;
 		return this.client.request("POST", sitePath(siteUid, "/sbp/qrc"), {
