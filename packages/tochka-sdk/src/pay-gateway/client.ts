@@ -167,6 +167,14 @@ export class PayGatewayClient {
 				{ url, method: upperMethod },
 			);
 		}
+		// Успешные ответы pay-gateway приходят в Open Banking-конверте
+		// `{ Data, Links, Meta }` (см. примеры create-payment / get-payment в доках).
+		// Возвращаем полезную нагрузку из `Data`; ответы без конверта (если такие
+		// есть) пропускаем как есть. Ответы-ошибки сюда не доходят — они плоские и
+		// обрабатываются выше через `TochkaError.from`.
+		if (parsed && typeof parsed === "object" && "Data" in (parsed as object)) {
+			return (parsed as { Data: unknown }).Data as T;
+		}
 		return parsed as T;
 	}
 
