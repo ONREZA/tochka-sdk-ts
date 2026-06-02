@@ -1,5 +1,6 @@
 import type { components } from "../_generated/schema.js";
 import type { TochkaFetchClient } from "../core/http.js";
+import { TochkaSDKError } from "../errors/index.js";
 import { BaseModule } from "./base.js";
 
 export type AcquiringPaymentStatus = components["schemas"]["AcquiringPaymentStatus"];
@@ -103,19 +104,37 @@ export class AcquiringPaymentsModule extends BaseModule {
 	}
 }
 
+/**
+ * Подписки (рекуррентные платежи) Internet Acquiring. Только банковские карты -
+ * приём другими способами (в т.ч. СБП) для подписок недоступен.
+ *
+ * Два взаимоисключающих режима (передать оба нельзя, банк вернёт ошибку):
+ * - объект `Options` ({ trancheCount, period, daysInPeriod }) - авто-график: после
+ *   первого платежа банк списывает сам по расписанию;
+ * - `recurring: true` - без графика: списания инициируете вы вручную через {@link charge}.
+ *
+ * Возврат по подписке проводится только в интернет-банке (метода API нет).
+ * Отмена через {@link setStatus} (статус `Cancelled`) необратима, продления нет.
+ *
+ * @see https://developers.tochka.com/docs/tochka-api/opisanie-metodov/podpiski-rekurrentnye-platezhi
+ */
 export class AcquiringSubscriptionsModule extends BaseModule {
+	/** Создать подписку без чека. Режимы `Options` XOR `recurring` - см. JSDoc класса. */
 	async create(
 		body: AcquiringCreateSubscriptionRequest,
 	): Promise<AcquiringCreateSubscriptionResponse> {
+		this.assertExclusiveMode(body);
 		const { data } = await this.fetch.POST("/acquiring/v1.0/subscriptions", {
 			body: { Data: body },
 		});
 		return this.unwrap(data, "acquiring.subscriptions.create");
 	}
 
+	/** Создать подписку с чеком (54-ФЗ). Режимы `Options` XOR `recurring` - см. JSDoc класса. */
 	async createWithReceipt(
 		body: AcquiringCreateSubscriptionWithReceiptRequest,
 	): Promise<AcquiringCreateSubscriptionWithReceiptResponse> {
+		this.assertExclusiveMode(body);
 		const { data } = await this.fetch.POST("/acquiring/v1.0/subscriptions_with_receipt", {
 			body: { Data: body },
 		});
@@ -154,6 +173,7 @@ export class AcquiringSubscriptionsModule extends BaseModule {
 		return this.unwrap(data, "acquiring.subscriptions.getStatus");
 	}
 
+	/** Отключить подписку (статус `Cancelled`). Необратимо - продлить нельзя, нужно создавать новую. */
 	async setStatus(
 		operationId: string,
 		body: AcquiringSetSubscriptionStatusRequest,
@@ -163,6 +183,19 @@ export class AcquiringSubscriptionsModule extends BaseModule {
 			body: { Data: body },
 		});
 		return this.unwrapBoolean(data, "acquiring.subscriptions.setStatus");
+	}
+
+	/**
+	 * `Options` (авто-график) и `recurring: true` (ручные списания) взаимоисключающи -
+	 * документация Точки запрещает передавать их вместе. Проверяем до отправки, чтобы
+	 * вернуть понятную ошибку вместо HTTP 400 от банка.
+	 */
+	private assertExclusiveMode(body: { recurring?: boolean; Options?: unknown }): void {
+		if (body.recurring && body.Options != null) {
+			throw new TochkaSDKError(
+				"acquiring.subscriptions: `Options` (scheduled auto-charge) and `recurring: true` (manual charge) are mutually exclusive; pass only one.",
+			);
+		}
 	}
 }
 
