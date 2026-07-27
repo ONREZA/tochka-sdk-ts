@@ -1,6 +1,6 @@
 {
   "name": "@onreza/tochka-sdk",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Типизированный TypeScript SDK для API Точка Банка",
   "type": "module",
   "license": "MIT",
