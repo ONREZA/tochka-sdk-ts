@@ -43,11 +43,11 @@ specs/              # OpenAPI слепок
 Примеры валидных сообщений:
 
 ```
-feat(modules): add paginate async iterator for statements
-fix(auth): refresh race when token expires during retry
+feat(tochka-sdk): add paginate async iterator for statements
+fix(tochka-sdk): refresh race when token expires during retry
 docs: clarify OAuth multi-tenant setup in README
 chore(deps): bump jose to 5.11.0
-feat(webhooks)!: split WebhookVerificationError into typed subclasses
+feat(tochka-sdk)!: split WebhookVerificationError into typed subclasses
 ```
 
 ## Workflow изменений
@@ -60,16 +60,17 @@ feat(webhooks)!: split WebhookVerificationError into typed subclasses
 
 ## Релизы
 
-Управляются через [onreza-release](https://gitverse.ru/onreza/release-tool):
+Управляются через
+[release-please](https://github.com/googleapis/release-please):
 
-- Вручную запустить workflow **Release** (`workflow_dispatch`) в GitHub Actions.
-- `onreza-release` на основе conventional-commits:
-  - определит следующую версию (feat → minor, fix → patch, feat! → major);
-  - обновит `packages/tochka-sdk/package.json`, `CHANGELOG.md`;
-  - создаст commit и тег `v{version}`;
-  - запушит и создаст GitHub Release.
-- Тег проходит полный `verify`; только после этого job `publish` публикует пакет
-  в npm через **trusted publishing** (OIDC, без `NPM_TOKEN`).
+- Каждый push в `main` создаёт или обновляет release PR.
+- Для изменений опубликованного пакета используйте scope `tochka-sdk`.
+- `release-please` вычисляет версию по conventional commits и обновляет
+  `packages/tochka-sdk/package.json`, `CHANGELOG.md` и release manifest.
+- Для версий `0.x` breaking change повышает minor-версию.
+- После merge release PR создаются тег `v{version}` и GitHub Release.
+- Тег проходит полный `verify`; только после этого пакет публикуется в npm через
+  **trusted publishing** (OIDC, без `NPM_TOKEN`).
 
 ## Обновление OpenAPI-спеки
 

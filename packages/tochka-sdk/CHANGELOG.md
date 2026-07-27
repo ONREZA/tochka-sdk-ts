@@ -1,8 +1,29 @@
 # Changelog
 
-Changelog ведётся автоматически через [onreza-release](https://gitverse.ru/onreza/release-tool) на основе [Conventional Commits](https://www.conventionalcommits.org/).
+Changelog ведётся автоматически через
+[release-please](https://github.com/googleapis/release-please) на основе
+[Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [0.1.5] - 2026-07-27
+
+### ⚠️ Breaking changes
+
+- Минимальная поддерживаемая версия Node.js повышена до 24.
+- Mutating-запросы больше не повторяются автоматически после неоднозначной
+  транспортной ошибки.
+- Типы, пути и request-конверты Pay Gateway приведены к официальной
+  OpenAPI-спецификации.
+
+### ✨ Features
+
+- Добавлены все исходящие операции и callback-контракты Pay Gateway.
+- Добавлена синхронизация основной и Pay Gateway OpenAPI-спецификаций.
+
+### 🐛 Fixed
+
+- Исправлены OAuth TokenStore, webhook JWK/JWKS, retry и package runtime
+  контракты.
+- Release и OpenAPI workflows получили единый проверяемый gate.
 
 ## [0.1.4] - 2026-06-22
 
