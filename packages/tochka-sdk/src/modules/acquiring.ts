@@ -142,12 +142,7 @@ export class AcquiringSubscriptionsModule extends BaseModule {
 	}
 
 	async list(
-		opts: {
-			customerCode?: string;
-			page?: number;
-			perPage?: number;
-			recurring?: boolean;
-		} = {},
+		opts: { customerCode?: string; page?: number; perPage?: number; recurring?: boolean } = {},
 	): Promise<AcquiringSubscriptionList> {
 		const customerCode =
 			opts.customerCode ?? this.requireCustomerCode("acquiring.subscriptions.list");

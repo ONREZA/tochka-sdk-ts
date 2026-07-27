@@ -6,10 +6,11 @@
 
 import { type JWTVerifyOptions, errors as joseErrors, jwtVerify } from "jose";
 import {
-	type KeyResolver,
-	type WebhookKeySource,
 	createWebhookKeyResolver,
 	getDefaultWebhookKeyResolver,
+	type KeyResolver,
+	WebhookKeyFetchError,
+	type WebhookKeySource,
 } from "./jwks.js";
 
 /** Причина, по которой верификация не прошла. */
@@ -17,6 +18,7 @@ export type WebhookVerificationReason =
 	| "signature"
 	| "expired"
 	| "not_yet_valid"
+	| "claims"
 	| "algorithm"
 	| "jwt_format"
 	| "key_fetch"
@@ -35,11 +37,18 @@ export class WebhookVerificationError extends Error {
 export function classifyJoseError(err: unknown): WebhookVerificationReason {
 	if (err instanceof joseErrors.JWSSignatureVerificationFailed) return "signature";
 	if (err instanceof joseErrors.JWTExpired) return "expired";
-	if (err instanceof joseErrors.JWTClaimValidationFailed) return "expired";
+	if (err instanceof joseErrors.JWTClaimValidationFailed) {
+		if (err.claim === "nbf") return "not_yet_valid";
+		if (err.claim === "exp") return "expired";
+		return "claims";
+	}
 	if (err instanceof joseErrors.JOSEAlgNotAllowed) return "algorithm";
 	if (err instanceof joseErrors.JWSInvalid || err instanceof joseErrors.JWTInvalid)
 		return "jwt_format";
 	if (
+		err instanceof WebhookKeyFetchError ||
+		err instanceof joseErrors.JWKInvalid ||
+		err instanceof joseErrors.JWKSInvalid ||
 		err instanceof joseErrors.JWKSNoMatchingKey ||
 		err instanceof joseErrors.JWKSMultipleMatchingKeys
 	)
@@ -57,6 +66,9 @@ export interface VerifyWebhookOptions {
 }
 
 export function resolveKeyResolver(options: VerifyWebhookOptions): KeyResolver {
+	if (options.keyResolver && options.keySource) {
+		throw new TypeError("keyResolver and keySource are mutually exclusive");
+	}
 	return (
 		options.keyResolver ??
 		(options.keySource
@@ -87,9 +99,13 @@ export async function verifyWebhookJwt(
 		if (err instanceof WebhookVerificationError) throw err;
 		const reason = classifyJoseError(err);
 		throw new WebhookVerificationError(
-			`Webhook verification failed (${reason}): ${(err as Error).message}`,
+			`Webhook verification failed (${reason}): ${errorMessage(err)}`,
 			reason,
 			{ cause: err },
 		);
 	}
+}
+
+function errorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
 }

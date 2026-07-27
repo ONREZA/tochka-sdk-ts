@@ -2,7 +2,7 @@
   "$schema": "node_modules/onreza-release/schema.json",
   "projectType": "node",
   "git": {
-    "commitMessage": "chore(release): v{{version}} [skip ci]",
+    "commitMessage": "chore(release): v{{version}}",
     "tagMessage": "Release v{{version}}",
     "push": true,
     "skipHooks": true

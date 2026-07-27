@@ -7,11 +7,11 @@ import { JwtAuth, SandboxAuth } from "./auth/jwt.js";
 import { OAuthAuth, type OAuthAuthOptions, StaticBearerAuth } from "./auth/oauth.js";
 import type { AuthProvider } from "./auth/types.js";
 import {
-	DEFAULT_RETRY,
-	type RetryOptions,
-	type TochkaFetchClient,
 	buildFetchClient,
 	makeRetryingFetch,
+	type RetryOptions,
+	resolveRetryOptions,
+	type TochkaFetchClient,
 } from "./core/index.js";
 import { AccountsModule } from "./modules/accounts.js";
 import { AcquiringModule } from "./modules/acquiring.js";
@@ -52,29 +52,75 @@ export interface TochkaClientOptions {
 	headers?: Record<string, string>;
 	userAgent?: string;
 	onRequest?: (info: { method: string; url: string }) => void;
-	onResponse?: (info: {
-		method: string;
-		url: string;
-		status: number;
-		durationMs: number;
-	}) => void;
+	onResponse?: (info: { method: string; url: string; status: number; durationMs: number }) => void;
 }
 
 const AUTH_KEYS = ["jwt", "sandbox", "bearer", "oauth", "custom"] as const;
 
-function resolveAuth(input: AuthInput): { provider: AuthProvider; isSandbox: boolean } {
-	const present = AUTH_KEYS.filter((k) => k in (input as Record<string, unknown>));
+function resolveAuth(
+	input: AuthInput,
+	timeoutMs: number | undefined,
+): { provider: AuthProvider; isSandbox: boolean } {
+	if (!input || typeof input !== "object") {
+		throw new Error("TochkaClient.auth must be an object");
+	}
+	const present = AUTH_KEYS.filter((key) => Object.hasOwn(input, key));
 	if (present.length !== 1) {
 		throw new Error(
 			`TochkaClient.auth: exactly one of [${AUTH_KEYS.join(", ")}] must be set, got [${present.join(", ")}]`,
 		);
 	}
-	if ("jwt" in input) return { provider: new JwtAuth(input.jwt), isSandbox: false };
-	if ("sandbox" in input) return { provider: new SandboxAuth(), isSandbox: true };
-	if ("bearer" in input) return { provider: new StaticBearerAuth(input.bearer), isSandbox: false };
-	if ("oauth" in input) return { provider: new OAuthAuth(input.oauth), isSandbox: false };
-	if ("custom" in input) return { provider: input.custom, isSandbox: false };
+	switch (present[0]) {
+		case "jwt":
+			return { provider: new JwtAuth((input as { jwt: string }).jwt), isSandbox: false };
+		case "sandbox":
+			if ((input as { sandbox: unknown }).sandbox !== true) {
+				throw new Error("TochkaClient.auth.sandbox must be true");
+			}
+			return { provider: new SandboxAuth(), isSandbox: true };
+		case "bearer":
+			return {
+				provider: new StaticBearerAuth((input as { bearer: string }).bearer),
+				isSandbox: false,
+			};
+		case "oauth": {
+			const oauth = (input as { oauth: OAuthAuthOptions }).oauth;
+			return {
+				provider: new OAuthAuth(
+					timeoutMs !== undefined && oauth.timeoutMs === undefined
+						? { ...oauth, timeoutMs }
+						: oauth,
+				),
+				isSandbox: false,
+			};
+		}
+		case "custom": {
+			const provider = (input as { custom: AuthProvider }).custom;
+			if (!provider || typeof provider.getHeaders !== "function") {
+				throw new Error("TochkaClient.auth.custom must implement getHeaders()");
+			}
+			return { provider, isSandbox: false };
+		}
+	}
 	throw new Error("TochkaClient: unknown auth input");
+}
+
+function validateClientOptions(options: TochkaClientOptions): void {
+	if (
+		options.timeoutMs !== undefined &&
+		(!Number.isFinite(options.timeoutMs) || options.timeoutMs < 0)
+	) {
+		throw new Error("TochkaClient.timeoutMs must be finite and non-negative");
+	}
+	if (options.baseUrl !== undefined) {
+		const url = new URL(options.baseUrl);
+		if (!["http:", "https:"].includes(url.protocol)) {
+			throw new Error("TochkaClient.baseUrl must use http or https");
+		}
+		if (url.username || url.password || url.search || url.hash) {
+			throw new Error("TochkaClient.baseUrl must not contain credentials, query, or fragment");
+		}
+	}
 }
 
 /**
@@ -116,19 +162,12 @@ export class TochkaClient {
 
 	static readonly apiVersion = TOCHKA_API_VERSION;
 
-	constructor(
-		options: TochkaClientOptions,
-		_internal?: { provider?: AuthProvider; isSandbox?: boolean },
-	) {
+	constructor(options: TochkaClientOptions) {
+		validateClientOptions(options);
 		this.options = options;
-		if (_internal?.provider) {
-			this.provider = _internal.provider;
-			this.isSandbox = _internal.isSandbox ?? false;
-		} else {
-			const resolved = resolveAuth(options.auth);
-			this.provider = resolved.provider;
-			this.isSandbox = resolved.isSandbox;
-		}
+		const resolved = resolveAuth(options.auth, options.timeoutMs);
+		this.provider = resolved.provider;
+		this.isSandbox = resolved.isSandbox;
 		const baseUrl =
 			options.baseUrl ?? (this.isSandbox ? TOCHKA_BASE_URL_SANDBOX : TOCHKA_BASE_URL_PROD);
 
@@ -136,7 +175,7 @@ export class TochkaClient {
 		const effectiveFetch =
 			options.retry === false
 				? baseFetch
-				: makeRetryingFetch({ ...DEFAULT_RETRY, ...(options.retry ?? {}) }, baseFetch);
+				: makeRetryingFetch(resolveRetryOptions(options.retry), baseFetch);
 
 		this.rawFetch = buildFetchClient({
 			baseUrl,
@@ -175,9 +214,13 @@ export class TochkaClient {
 	 * (важно для OAuth — токен-кэш и inflight-dedup общие с родителем).
 	 */
 	forCustomer(customerCode: string): TochkaClient {
-		return new TochkaClient(
-			{ ...this.options, customerCode },
-			{ provider: this.provider, isSandbox: this.isSandbox },
-		);
+		const baseUrl =
+			this.options.baseUrl ?? (this.isSandbox ? TOCHKA_BASE_URL_SANDBOX : TOCHKA_BASE_URL_PROD);
+		return new TochkaClient({
+			...this.options,
+			auth: { custom: this.provider },
+			baseUrl,
+			customerCode,
+		});
 	}
 }

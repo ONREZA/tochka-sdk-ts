@@ -4,8 +4,8 @@
 
 ## Требования
 
-- [Bun](https://bun.sh) — рантайм и test-раннер
-- Node 18+ (для проверки совместимости, опционально)
+- [Bun](https://bun.sh) 1.3.14 — рантайм и test-раннер
+- Node 24+ — инструменты разработки, сборка и поддерживаемый рантайм SDK
 - [cocogitto](https://github.com/cocogitto/cocogitto) для локальной валидации коммитов (опционально, но рекомендуется): `cargo install cocogitto`
 - `lefthook` ставится автоматически через `bun install`
 
@@ -13,11 +13,8 @@
 
 ```bash
 bun install          # + ставит git hooks через lefthook
-bun run gen          # генерация типов из specs/openapi.json
-bun run build        # сборка пакета
-bun test             # unit-тесты
-bun run lint         # biome
-bun run typecheck    # tsc --noEmit
+bun run gen          # генерация типов из обеих OpenAPI-спецификаций
+bun run verify       # полный локальный CI-контур
 ```
 
 ## Структура
@@ -57,8 +54,9 @@ feat(webhooks)!: split WebhookVerificationError into typed subclasses
 
 1. Ветка от `main`.
 2. Код + тесты + conventional commits.
-3. `bun run lint && bun run typecheck && bun test && bun run build` должны пройти.
-4. PR в `main`. CI прогонит всё ещё раз + проверит что generated types in-sync + провалидирует коммиты.
+3. `bun run verify` должен пройти.
+4. PR в `main`. CI повторит проверку, проверит переносимость типов и импорты в
+   поддерживаемых Node/Deno runtime.
 
 ## Релизы
 
@@ -70,7 +68,8 @@ feat(webhooks)!: split WebhookVerificationError into typed subclasses
   - обновит `packages/tochka-sdk/package.json`, `CHANGELOG.md`;
   - создаст commit и тег `v{version}`;
   - запушит и создаст GitHub Release.
-- Второй job `publish` публикует пакет в npm через **trusted publishing** (OIDC, без `NPM_TOKEN`).
+- Тег проходит полный `verify`; только после этого job `publish` публикует пакет
+  в npm через **trusted publishing** (OIDC, без `NPM_TOKEN`).
 
 ## Обновление OpenAPI-спеки
 
@@ -78,7 +77,7 @@ Cron-workflow `sync-openapi.yml` раз в сутки сам создаёт PR, 
 
 ```bash
 bun run spec:sync   # fetch + gen + diff → .sync-report.md
-bun run lint && bun run typecheck && bun run build && bun test
+bun run verify
 ```
 
 ## Поддержка

@@ -2,16 +2,18 @@
 
 Типизированный TypeScript SDK для API [Точка Банка](https://developers.tochka.com/).
 
-Работает в Node 18+, Bun, Deno, Cloudflare Workers. Публикуется в npm.
+Работает в Node 24+, Bun, Deno, Cloudflare Workers. Публикуется в npm.
 
 ## Возможности
 
-- Все **59 методов** API Точки (open-banking, SBP, acquiring, invoices, payments, consents, webhooks) с типами
-- **3 способа авторизации**: JWT-ключ, sandbox, полный OAuth 2.0 (client_credentials + authorization_code + PKCE + автообновление)
-- **Верификация вебхуков** RS256 через `jose`, дискриминированный union по `webhookType`, kid-matching и TTL-кэш JWKS
-- **Pay Gateway** с RSA-SHA256 подписью тела через WebCrypto, защита от double-charge на ретраях
-- **Транспорт**: retry с exponential backoff, таймауты, маппинг ошибок в `TochkaError`, telemetry hooks
-- **Автообновление спеки**: cron в GitHub Actions качает `swagger.json`, регенерит типы, открывает PR с changeset
+- Все **71 метод** API Точки (open-banking, SBP, acquiring, invoices, payments, consents, webhooks) с типами
+- **5 режимов авторизации**: JWT-ключ, sandbox, bearer, OAuth 2.0 и собственный `AuthProvider`
+- **Верификация вебхуков** RS256 через `jose`, runtime-проверка payload, `customWebhook`, kid-matching и TTL-кэш JWKS
+- **Pay Gateway**: все исходящие методы официальной спецификации, RSA-SHA256
+  подпись через WebCrypto и защита от double-charge на ретраях
+- **Транспорт**: безопасные retry только для read-only методов, таймауты, типизированные ошибки и telemetry hooks
+- **Автообновление спецификаций**: cron обновляет основной API и Pay Gateway,
+  проверяет semantic diff и открывает PR
 
 ## Установка
 
@@ -81,13 +83,16 @@ const tokens = await oauth.exchangeCode({
   codeVerifier: pkce.codeVerifier,
 });
 
-// 3. Передать токены в клиент — SDK сам обновляет через refresh_token
+// 3. Передать токены в клиент — SDK сам обновляет через refresh_token.
+// Для общего постоянного store обязателен tenant-specific storeKey.
 const client = new TochkaClient({
   auth: {
     oauth: {
       clientId,
       clientSecret,
       mode: "authorization_code",
+      store: tokenStore,
+      storeKey: `oauth:${tenantId}`,
       tokens: {
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token!,
@@ -98,6 +103,10 @@ const client = new TochkaClient({
   },
 });
 ```
+
+SDK дедуплицирует refresh одного `storeKey` внутри процесса. Если несколько
+процессов используют общий Redis/БД store, приложение должно сериализовать
+refresh одного tenant на уровне распределённого lock.
 
 ### Вебхуки
 
@@ -115,7 +124,10 @@ app.post("/webhook", async (req, res) => {
       case "acquiringInternetPayment":
         console.log("Card:", event.amount, event.paymentType);
         break;
-      // ... остальные 3 типа
+      case "customWebhook":
+        console.log("Custom:", event);
+        break;
+      // ... остальные типы
     }
     res.status(200).send();
   } catch (err) {
@@ -141,9 +153,15 @@ const pg = new PayGatewayClient({
 
 const operation = await pg.payments.create({
   siteUid: "your-site",
-  amount: "100.00",
+  paymentUid: "payment-123",
+  amount: { currency: "RUB", amount: "100.00" },
   orderUid: "order-123",
-  paymentMethod: { type: "CARD", pan: "...", ... },
+  paymentMethod: {
+    type: "CARD",
+    pan: "4111111111111111",
+    expirationDate: "12/28",
+    captureMode: "AUTO",
+  },
 });
 ```
 
@@ -166,6 +184,7 @@ import {
   InvalidTokenError,
   OperationRateLimitError,
   TochkaNetworkError,
+  TochkaUnknownOutcomeError,
 } from "@onreza/tochka-sdk/errors";
 
 try {
@@ -175,6 +194,9 @@ try {
     // обновить токен
   } else if (err instanceof OperationRateLimitError) {
     // подождать, повторить
+  } else if (err instanceof TochkaUnknownOutcomeError) {
+    // POST/PATCH/... мог быть применён сервером: сначала сверить состояние,
+    // не повторять операцию без подтверждённой server-side idempotency
   } else if (err instanceof TochkaNetworkError) {
     // проблемы с сетью
   } else if (err instanceof TochkaError) {
@@ -183,17 +205,17 @@ try {
 }
 ```
 
+По умолчанию SDK автоматически повторяет только `GET`, `HEAD` и `OPTIONS`.
+Расширять `retry.retryableMethods` для записывающих методов безопасно только при
+документированной server-side idempotency.
+
 ## Разработка
 
 См. [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ```bash
 bun install
-bun run gen        # генерация типов из specs/openapi.json
-bun run build      # сборка пакета
-bun test           # unit тесты
-bun run lint       # biome
-bun run typecheck  # tsc --noEmit
+bun run verify     # generated diff, lint, typecheck, тесты, build и npm pack
 ```
 
 ## Лицензия

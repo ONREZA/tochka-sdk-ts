@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
-	DEFAULT_RETRY,
 	computeBackoffMs,
+	DEFAULT_RETRY,
 	isAbortError,
 	parseRetryAfter,
 	sleep,
@@ -141,5 +141,12 @@ describe("validateRetryOptions", () => {
 	test("падает на отрицательные delay", () => {
 		expect(() => validateRetryOptions({ ...DEFAULT_RETRY, initialDelayMs: -1 })).toThrow();
 		expect(() => validateRetryOptions({ ...DEFAULT_RETRY, maxDelayMs: -1 })).toThrow();
+	});
+
+	test("падает на неположительный factor и невалидный HTTP status", () => {
+		expect(() => validateRetryOptions({ ...DEFAULT_RETRY, factor: 0 })).toThrow();
+		expect(() =>
+			validateRetryOptions({ ...DEFAULT_RETRY, retryableStatuses: new Set([700]) }),
+		).toThrow();
 	});
 });

@@ -7,7 +7,7 @@
   "author": "ONREZA",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ONREZA/tochka-sdk-ts.git",
+    "url": "git+https://github.com/ONREZA/tochka-sdk-ts.git",
     "directory": "packages/tochka-sdk"
   },
   "keywords": [
@@ -19,7 +19,7 @@
     "typescript"
   ],
   "engines": {
-    "node": ">=18"
+    "node": ">=24"
   },
   "sideEffects": false,
   "main": "./dist/index.cjs",
@@ -74,18 +74,23 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "prepack": "bun ../../tools/package-files.ts prepare && bun run build",
+    "postpack": "bun ../../tools/package-files.ts clean",
     "test": "bun test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "typecheck:portable": "tsc --noEmit -p tsconfig.portable.json"
   },
   "dependencies": {
-    "jose": "^5.9.6",
-    "openapi-fetch": "^0.13.4"
+    "jose": "6.2.4",
+    "openapi-fetch": "0.17.0"
   },
   "devDependencies": {
-    "@types/bun": "latest",
-    "tsup": "^8.3.5",
-    "typescript": "^5.6.3"
+    "@arethetypeswrong/core": "0.18.5",
+    "@types/bun": "1.3.14",
+    "publint": "0.3.22",
+    "tsdown": "0.22.14",
+    "typescript": "6.0.3"
   }
 }

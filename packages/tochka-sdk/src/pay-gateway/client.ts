@@ -1,19 +1,28 @@
 import {
-	DEFAULT_RETRY,
-	type RetryOptions,
 	computeBackoffMs,
 	isAbortError,
+	isReadOnlyMethod,
+	isRetryableMethod,
 	parseRetryAfter,
+	type RetryOptions,
+	resolveRetryOptions,
 	sleep,
-	validateRetryOptions,
 } from "../core/retry.js";
-import { TochkaError, TochkaNetworkError } from "../errors/index.js";
-import { type BodySigner, type PrivateKeyInput, createBodySigner } from "./signature.js";
+import {
+	TochkaError,
+	type TochkaErrorPayload,
+	TochkaNetworkError,
+	TochkaUnknownOutcomeError,
+} from "../errors/index.js";
+import { type BodySigner, createBodySigner, type PrivateKeyInput } from "./signature.js";
 
 export interface PayGatewayClientOptions {
 	/** JWT-токен авторизации (Authorization: Bearer). */
 	token: string;
-	/** Базовый URL. Выдаётся Точкой при онбординге. Должен включать scheme (`https://`). */
+	/**
+	 * Origin без path/query. Выдаётся Точкой при онбординге и должен включать
+	 * scheme (`https://`); `/uapi/pay/...` SDK добавляет сам.
+	 */
 	baseUrl: string;
 	/**
 	 * Приватный ключ для RSA-SHA256 подписи тела запросов. Формат — PKCS#8 PEM
@@ -26,24 +35,25 @@ export interface PayGatewayClientOptions {
 	userAgent?: string;
 	timeoutMs?: number;
 	/**
-	 * Настройки ретраев для всех путей, КРОМЕ подписанных (mutating).
-	 * По умолчанию — без ретрая на сетевые ошибки для подписанных путей,
-	 * т.к. без серверной идемпотентности повтор даст двойное списание.
+	 * Настройки ретраев. По умолчанию повторяются только read-only методы.
+	 * Mutating-методы можно добавить в `retryableMethods` только при наличии
+	 * подтверждённой server-side idempotency.
 	 */
 	retry?: Partial<RetryOptions> | false;
 	/**
 	 * HTTP-методы + пути (regexp или строка), для которых SDK обязан подписать тело.
 	 * По умолчанию — создание платежа (`POST .../payments`), подтверждение
-	 * (`POST .../payments/{id}/capture`) и возврат (`POST .../refunds`).
+	 * (`POST .../payments/{id}/captures`) и возврат
+	 * (`POST .../payments/{id}/refunds`).
 	 */
-	signedPaths?: Array<string | RegExp>;
+	signedPaths?: readonly (string | RegExp)[];
 }
 
-export const DEFAULT_SIGNED_PATHS: Array<string | RegExp> = [
+export const DEFAULT_SIGNED_PATHS: readonly (string | RegExp)[] = Object.freeze([
 	/\/payments(?:\?|$)/,
-	/\/capture(?:\?|$)/,
+	/\/captures(?:\?|$)/,
 	/\/refunds(?:\?|$)/,
-];
+]);
 
 export class PayGatewayClient {
 	private readonly opts: PayGatewayClientOptions;
@@ -55,23 +65,43 @@ export class PayGatewayClient {
 	constructor(opts: PayGatewayClientOptions) {
 		if (!opts.token) throw new Error("PayGatewayClient: token is required");
 		if (!opts.baseUrl) throw new Error("PayGatewayClient: baseUrl is required");
+		let baseUrl: URL;
 		try {
-			new URL(opts.baseUrl);
+			baseUrl = new URL(opts.baseUrl);
 		} catch {
 			throw new Error(`PayGatewayClient: baseUrl is not a valid URL: ${opts.baseUrl}`);
 		}
-		this.opts = opts;
+		if (!["http:", "https:"].includes(baseUrl.protocol)) {
+			throw new Error("PayGatewayClient: baseUrl must use http or https");
+		}
+		if (baseUrl.username || baseUrl.password || baseUrl.search || baseUrl.hash) {
+			throw new Error("PayGatewayClient: baseUrl must not contain credentials, query, or fragment");
+		}
+		if (baseUrl.pathname !== "/" && baseUrl.pathname !== "") {
+			throw new Error("PayGatewayClient: baseUrl must be an origin without a path");
+		}
+		if (opts.timeoutMs !== undefined && (!Number.isFinite(opts.timeoutMs) || opts.timeoutMs < 0)) {
+			throw new Error("PayGatewayClient: timeoutMs must be finite and non-negative");
+		}
+		for (const pattern of opts.signedPaths ?? []) {
+			if (pattern instanceof RegExp && (pattern.global || pattern.sticky)) {
+				throw new Error("PayGatewayClient: signedPaths RegExp must not use g or y flags");
+			}
+		}
+		this.opts = {
+			...opts,
+			...(opts.headers ? { headers: { ...opts.headers } } : {}),
+			...(opts.signedPaths ? { signedPaths: [...opts.signedPaths] } : {}),
+		};
 		this.baseUrl = opts.baseUrl.replace(/\/+$/, "");
 		if (opts.retry === false) {
 			this.retryOpts = null;
 			this.retryOptsForSigned = null;
 		} else {
-			const merged = { ...DEFAULT_RETRY, ...(opts.retry ?? {}) };
-			validateRetryOptions(merged);
+			const merged = resolveRetryOptions(opts.retry);
 			this.retryOpts = merged;
-			// На подписанных путях без Idempotency-Key на стороне сервера retry
-			// сетевых ошибок может привести к двойному списанию. Безопасный дефолт —
-			// не ретраить сетевые ошибки; 5xx-retry оставляем только если включён явно.
+			// Даже при явном opt-in mutating-метода подписанные запросы не повторяем
+			// после сетевой ошибки: банк мог применить операцию до разрыва соединения.
 			this.retryOptsForSigned = { ...merged, retryOnNetworkError: false };
 		}
 	}
@@ -80,10 +110,8 @@ export class PayGatewayClient {
 	 * Низкоуровневый запрос. Подпись Signature добавляется автоматически для
 	 * путей из `signedPaths`.
 	 *
-	 * **Идемпотентность:** для подписанных путей (`.../payments` и пр.) SDK
-	 * НЕ ретраит на сетевую ошибку — повтор без server-side идемпотентности
-	 * опасен. Передавайте стабильный `orderUid`/`agentRefundRequestId` в body,
-	 * если хотите повторять вручную.
+	 * **Идемпотентность:** mutating-пути не ретраятся по умолчанию. После
+	 * транспортной ошибки SDK бросает `TochkaUnknownOutcomeError`.
 	 */
 	async request<T = unknown>(
 		method: string,
@@ -94,11 +122,11 @@ export class PayGatewayClient {
 		const url = `${this.baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
 		const upperMethod = method.toUpperCase();
 		const headers: Record<string, string> = {
-			Authorization: `Bearer ${this.opts.token}`,
 			Accept: "application/json",
 			"User-Agent": this.opts.userAgent ?? "onreza-tochka-sdk",
 			...(this.opts.headers ?? {}),
 			...(init.headers ?? {}),
+			Authorization: `Bearer ${this.opts.token}`,
 		};
 
 		let serialized: string | undefined;
@@ -140,10 +168,13 @@ export class PayGatewayClient {
 			try {
 				parsed = JSON.parse(text);
 			} catch (err) {
-				throw new TochkaNetworkError(
-					`PayGateway: malformed JSON response from ${url} (HTTP ${response.status}): ${(err as Error).message}`,
-					{ url, method: upperMethod, cause: err },
-				);
+				if (response.ok) {
+					throw new TochkaNetworkError(
+						`PayGateway: malformed JSON response from ${url} (HTTP ${response.status}): ${(err as Error).message}`,
+						{ url, method: upperMethod, cause: err },
+					);
+				}
+				parsed = text;
 			}
 		} else {
 			parsed = text;
@@ -154,10 +185,7 @@ export class PayGatewayClient {
 				status: response.status,
 				url,
 				method: upperMethod,
-				payload:
-					parsed && typeof parsed === "object"
-						? (parsed as { code?: number; message?: string; Errors?: [] })
-						: undefined,
+				payload: parsed && typeof parsed === "object" ? (parsed as TochkaErrorPayload) : undefined,
 				rawBody: text,
 			});
 		}
@@ -179,7 +207,7 @@ export class PayGatewayClient {
 	}
 
 	private shouldSign(method: string, path: string): boolean {
-		if (method === "GET" || method === "DELETE") return false;
+		if (isReadOnlyMethod(method)) return false;
 		const patterns = this.opts.signedPaths ?? DEFAULT_SIGNED_PATHS;
 		return patterns.some((pat) => (typeof pat === "string" ? path.includes(pat) : pat.test(path)));
 	}
@@ -209,8 +237,12 @@ export class PayGatewayClient {
 			retry: RetryOptions | null;
 		},
 	): Promise<Response> {
+		if (opts.signal?.aborted) {
+			throw opts.signal.reason ?? new DOMException("Aborted", "AbortError");
+		}
 		const retry = opts.retry;
-		const maxAttempts = retry ? retry.maxAttempts : 1;
+		const mayRetry = retry ? isRetryableMethod(opts.method, retry) : false;
+		const maxAttempts = retry && mayRetry ? retry.maxAttempts : 1;
 		let attempt = 0;
 		while (attempt < maxAttempts) {
 			attempt += 1;
@@ -223,31 +255,41 @@ export class PayGatewayClient {
 				: null;
 			const forwardAbort = () => ac.abort(opts.signal?.reason);
 			opts.signal?.addEventListener("abort", forwardAbort, { once: true });
+			let response: Response;
 			try {
-				const res = await fetchImpl(url, {
+				response = await fetchImpl(url, {
 					method: opts.method,
 					headers: opts.headers,
 					...(opts.body !== undefined ? { body: opts.body } : {}),
 					signal: ac.signal,
 				});
-				if (!retry || !retry.retryableStatuses.has(res.status) || attempt >= maxAttempts) {
-					return res;
-				}
-				const retryAfter = parseRetryAfter(res.headers.get("retry-after"), retry.maxDelayMs);
-				await sleep(retryAfter ?? computeBackoffMs(attempt, retry), opts.signal);
 			} catch (err) {
-				if (isAbortError(err) || opts.signal?.aborted) throw err;
-				if (!retry || !retry.retryOnNetworkError || attempt >= maxAttempts) {
-					throw new TochkaNetworkError(
-						`PayGateway network error after ${attempt} attempt(s): ${(err as Error).message}`,
-						{ url, method: opts.method, cause: err },
-					);
+				const aborted = isAbortError(err) || ac.signal.aborted || opts.signal?.aborted;
+				if (aborted || !retry || !retry.retryOnNetworkError || attempt >= maxAttempts) {
+					const message = `PayGateway network error after ${attempt} attempt(s): ${(err as Error).message}`;
+					const details = { url, method: opts.method, cause: err };
+					if (opts.signal?.aborted && isReadOnlyMethod(opts.method)) {
+						throw opts.signal.reason ?? err;
+					}
+					throw isReadOnlyMethod(opts.method)
+						? new TochkaNetworkError(message, details)
+						: new TochkaUnknownOutcomeError(
+								`${message}. The operation outcome is unknown; do not retry without idempotency.`,
+								details,
+							);
 				}
 				await sleep(computeBackoffMs(attempt, retry), opts.signal);
+				continue;
 			} finally {
 				if (timer) clearTimeout(timer);
 				opts.signal?.removeEventListener("abort", forwardAbort);
 			}
+			if (!retry?.retryableStatuses.has(response.status) || attempt >= maxAttempts) {
+				return response;
+			}
+			const retryAfter = parseRetryAfter(response.headers.get("retry-after"), retry.maxDelayMs);
+			await response.body?.cancel().catch(() => undefined);
+			await sleep(retryAfter ?? computeBackoffMs(attempt, retry), opts.signal);
 		}
 		throw new Error("PayGatewayClient.doRequest: unreachable");
 	}

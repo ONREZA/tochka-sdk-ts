@@ -1,14 +1,14 @@
 # tochka-sdk-ts
 
-Типизированный TypeScript SDK для [API Точка Банка](https://developers.tochka.com/). Опубликован как `@onreza/tochka-sdk`. Работает в Node 18+, Bun, Deno, Cloudflare Workers (WebCrypto + fetch).
+Типизированный TypeScript SDK для [API Точка Банка](https://developers.tochka.com/). Опубликован как `@onreza/tochka-sdk`. Работает в Node 24+, Bun, Deno, Cloudflare Workers (WebCrypto + fetch).
 
 ## Сборка и запуск
 
 ```bash
 bun install
 bun run gen             # openapi-typescript → src/_generated/
-bun run build           # tsup: ESM + CJS + DTS, subpath exports
-bun test                # bun test (102 unit-тестов)
+bun run build           # tsdown: ESM + CJS + DTS, subpath exports
+bun test                # unit- и contract-тесты
 bun run lint            # biome check
 bun run typecheck       # tsc --noEmit
 bun run spec:fetch      # скачать свежий swagger.json в specs/
@@ -23,6 +23,7 @@ packages/tochka-sdk/
 ├─ src/
 │  ├─ _generated/        # AUTO — openapi-typescript, не редактировать
 │  │  ├─ schema.d.ts     # paths + operations + components (~11K строк)
+│  │  ├─ pay-gateway.d.ts# типы официальной Pay Gateway OpenAPI
 │  │  └─ meta.ts         # TOCHKA_API_VERSION + BASE_URL константы
 │  ├─ core/              # транспорт
 │  │  ├─ http.ts         # openapi-fetch wrapper, middleware стек, makeRetryingFetch
@@ -49,16 +50,21 @@ packages/tochka-sdk/
 │  ├─ pay-gateway/       # Отдельный PCI-клиент с RSA-подписью тела
 │  │  ├─ client.ts       # PayGatewayClient + doRequest с double-charge guard
 │  │  ├─ signature.ts    # createBodySigner (RSA-SHA256 через WebCrypto)
-│  │  └─ payments.ts     # create / get / capture / refund
+│  │  ├─ payments.ts     # платежи, capture и refund
+│  │  ├─ sbp.ts          # функциональные ссылки СБП
+│  │  ├─ cash-register.ts# кассовые ссылки СБП
+│  │  ├─ invoices.ts     # счета
+│  │  └─ card-tokens.ts  # операции с карточными токенами
 │  ├─ errors/index.ts    # TochkaError иерархия + TochkaNetworkError + TochkaSDKError
 │  ├─ client.ts          # TochkaClient composition root, forCustomer, sandbox
 │  └─ index.ts           # публичные exports
 └─ test/unit/            # bun test — pure functions only
 specs/
-├─ openapi.json          # актуальный слепок API (v1.90.3-stable)
-└─ openapi.prev.json     # предыдущая версия для diff (gitignored)
+├─ openapi.json          # актуальный слепок основного API
+├─ pay-gateway.json      # актуальный слепок Pay Gateway
+└─ *.prev.json           # предыдущие версии для diff (gitignored)
 tools/
-├─ fetch-spec.ts         # скачивает swagger.json, сохраняет prev
+├─ fetch-spec.ts         # скачивает обе спецификации, сохраняет prev
 ├─ gen.ts                # openapi-typescript → _generated/
 ├─ diff.ts               # diff путей и operationId между снимками
 └─ sync.ts               # fetch + gen + diff одной командой (для CI)
@@ -87,7 +93,9 @@ tools/
 
 - **Все ответы Точки обёрнуты в `{ Data, Links, Meta }`**. В модулях распаковываем через `this.unwrap(data, "op")`. Для boolean-ответов (`{ Data: { result: bool } }`) — `this.unwrapBoolean(...)`.
 - **`customerCode` передаётся через заголовок**, не в теле. Для привязки к конкретной компании — `client.forCustomer(code)`. Новый клиент **переиспользует** `AuthProvider` родителя — это критично для OAuth token-кэша.
-- **Middleware порядок важен.** Регистрация: `auth → timeout → error → telemetry`. `onResponse` в `openapi-fetch` идёт в обратном порядке; поэтому timeout-timer чистится через WeakMap в `onResponse` И `onError` (иначе утечка на не-OK response или network error).
+- **Middleware порядок важен.** Регистрация: `auth → error → telemetry → timeout`.
+  `onResponse` идёт в обратном порядке, поэтому timeout очищается до telemetry
+  callback и до того, как error middleware бросит исключение.
 - **Retry двойной**: низкоуровневый retry в `makeRetryingFetch` (5xx/network), middleware только для mapping ошибок. **AbortError никогда не ретраится** — `isAbortError` + throw.
 - **Pay Gateway: ≠ retry-on-network для подписанных путей.** Чтобы не было double-charge. У клиента 2 retry-конфига: обычный и `retryOptsForSigned` (с `retryOnNetworkError: false`).
 
@@ -122,7 +130,8 @@ const event = await verifyWebhook(rawBody);
 
 Отдельный продукт Точки — прямой приём карт/СБП со своей формой мерчанта. Требует сертификат PCI DSS AOC, выдаётся при онбординге. API, хост и JWT-токен — отдельные.
 
-- 3 эндпоинта требуют RSA-SHA256 подпись тела в заголовке `Signature`: `POST /create-payment`, `POST /create-capture`, `POST /create-refund`.
+- Подписываются mutating-пути `payments`, `captures` и `refunds`; маршруты
+  берутся из официальной OpenAPI Pay Gateway.
 - Ключ — PKCS#8 PEM (PKCS#1 должен быть сконвертирован: `openssl pkcs8 -topk8 -nocrypt -in private.pem -out private_pkcs8.pem`).
 - Минимум 2048-бит, валидируется в `signature.ts`.
 
@@ -130,22 +139,27 @@ const event = await verifyWebhook(rawBody);
 
 Когда Точка добавляет новый метод в OpenAPI:
 
-1. `bun run spec:sync` — подтянет свежий swagger.json, регенерит типы, создаст `.sync-report.md` с diff.
+1. `bun run spec:sync` — подтянет обе OpenAPI-спецификации, регенерирует типы и создаст `.sync-report.md` с diff.
 2. Найти соответствующий модуль в `src/modules/` (или создать новый, если это новая группа).
 3. Добавить UX-обёртку, использующую `this.fetch.GET/POST/PUT/DELETE` с типизированным path. Для единого респонса `{ Data, Links, Meta }` — `this.unwrap(data, "module.method")`.
 4. Если нужны новые публичные типы — экспортировать через `export type ...` в модуле, `modules/index.ts` переэкспортит.
 5. Если метод управляет подресурсом (как в SBP — `qrCodes`, `cashboxQrCodes`), добавить в соответствующий sub-module класс + зарегистрировать в корневом `SbpModule`.
 6. Обновить публичный модуль через `TochkaClient` (добавить readonly в constructor).
 
-**CI проверит что generated types in-sync с `specs/openapi.json`** (`git diff --exit-code packages/tochka-sdk/src/_generated`).
+**CI проверит, что generated types синхронизированы с обеими спецификациями.**
 
 ## Релизы
 
 Через `onreza-release` (внутренний tool) + `cocogitto` + `lefthook`:
 
 - `Release` workflow запускается вручную (`workflow_dispatch`). Bump версии по conventional-commits (`feat` → minor, `fix` → patch, `feat!` → major).
-- Публикация в npm через **trusted publishing (OIDC)** — без `NPM_TOKEN`. **Требует Node 24+** в workflow, т.к. npm trusted publishing требует npm ≥ 11.5 (Node 22 даст `E404` на PUT, замаскированную под «пакета нет в registry»).
-- Ежедневный cron `sync-openapi.yml` качает свежий `swagger.json` и создаёт PR с regenerated types + patch-changeset.
+- Release-tool сериализует `packages/tochka-sdk/package.json` с двумя пробелами;
+  Biome override намеренно использует тот же формат. Не переносить этот файл на
+  tabs: это снова сломает ежедневный sync после каждого релиза.
+- Публикация в npm через **trusted publishing (OIDC)** — без `NPM_TOKEN`;
+  release workflow использует поддерживаемый Node 24.
+- Ежедневный cron `sync-openapi.yml` обновляет обе спецификации и создаёт PR с
+  regenerated types и semantic diff.
 
 ## Conventions
 

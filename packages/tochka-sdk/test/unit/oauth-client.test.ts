@@ -145,6 +145,18 @@ describe("OAuthClient.token — валидация ответа", () => {
 		await expect(client.clientCredentials()).rejects.toBeInstanceOf(OAuthTokenError);
 	});
 
+	test("200 с неполным token contract → OAuthTokenError", async () => {
+		const client = new OAuthClient({
+			clientId: "cid",
+			clientSecret: "sec",
+			fetch: (async () =>
+				new Response(JSON.stringify({ access_token: "at", token_type: "bearer" }), {
+					status: 200,
+				})) as typeof fetch,
+		});
+		await expect(client.clientCredentials()).rejects.toBeInstanceOf(OAuthTokenError);
+	});
+
 	test("OAuthTokenError.body не enumerable (не попадает в JSON.stringify)", () => {
 		const err = new OAuthTokenError(401, { error: "x", refresh_token: "secret" });
 		const serialized = JSON.stringify(err);

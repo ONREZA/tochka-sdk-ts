@@ -2,30 +2,44 @@
 	"name": "tochka-sdk-ts",
 	"private": true,
 	"type": "module",
-	"workspaces": ["packages/*"],
+	"packageManager": "bun@1.3.14",
+	"workspaces": [
+		"packages/*"
+	],
 	"scripts": {
 		"build": "bun --filter='@onreza/*' run build",
-		"test": "bun --filter='@onreza/*' run test",
+		"test": "bun run test:tools && bun --filter='@onreza/*' run test",
+		"test:tools": "bun test tools",
 		"typecheck": "bun --filter='@onreza/*' run typecheck",
+		"typecheck:tools": "tsc --noEmit -p tsconfig.tools.json",
+		"typecheck:portable": "bun --filter='@onreza/*' run typecheck:portable",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
 		"format": "biome format --write .",
 		"gen": "bun tools/gen.ts",
+		"gen:check": "bun tools/check-generated.ts",
 		"spec:fetch": "bun tools/fetch-spec.ts",
 		"spec:diff": "bun tools/diff.ts",
 		"spec:sync": "bun tools/sync.ts",
+		"package:check": "bun tools/check-package.ts",
+		"verify": "bun run gen:check && bun run lint && bun run typecheck && bun run typecheck:tools && bun run typecheck:portable && bun run test && bun run build && bun run package:check",
 		"prepare": "lefthook install || echo 'Install lefthook: https://github.com/evilmartians/lefthook'",
 		"release": "onreza-release"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^1.9.4",
-		"@types/bun": "latest",
-		"lefthook": "^2.1.4",
-		"onreza-release": "^2.7.0",
-		"openapi-typescript": "^7.4.4",
-		"typescript": "^5.6.3"
+		"@biomejs/biome": "2.5.5",
+		"@types/bun": "1.3.14",
+		"lefthook": "2.1.10",
+		"onreza-release": "2.7.0",
+		"openapi-typescript": "7.13.0",
+		"typescript": "6.0.3"
 	},
 	"engines": {
-		"node": ">=18"
+		"node": ">=24"
+	},
+	"overrides": {
+		"brace-expansion": "5.0.8",
+		"js-yaml": "4.3.0",
+		"tar": "7.5.22"
 	}
 }

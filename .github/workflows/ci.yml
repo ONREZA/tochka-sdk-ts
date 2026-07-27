@@ -18,22 +18,42 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: 1.3.14
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
 
       - run: bun install --frozen-lockfile
 
-      - name: Regenerate types (must be up to date)
-        run: |
-          bun run gen
-          if ! git diff --exit-code packages/tochka-sdk/src/_generated; then
-            echo "::error::Generated types are out of sync. Run \`bun run gen\` locally."
-            exit 1
-          fi
+      - name: Verify repository
+        run: bun run verify
 
-      - run: bun run lint
-      - run: bun run typecheck
-      - run: bun run test
+  deno-runtime:
+    name: Deno
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - uses: denoland/setup-deno@v2
+
+      - run: bun install --frozen-lockfile
       - run: bun run build
+      - run: |
+          deno eval '
+            const entries = ["index", "webhooks", "pay-gateway", "errors"];
+            await Promise.all(entries.map((entry) =>
+              import("./packages/tochka-sdk/dist/" + entry + ".js")
+            ));
+          '
 
   commitlint:
     name: Lint Commit Messages

@@ -33,7 +33,7 @@ function makeClient(captured: Captured, privateKey?: string) {
 		captured.method = init.method;
 		captured.headers = init.headers as Record<string, string>;
 		captured.body = init.body as string | undefined;
-		return new Response(JSON.stringify({ paymentUid: "p1" }), {
+		return new Response(JSON.stringify({ Data: { paymentUid: "p1" } }), {
 			status: 200,
 			headers: { "content-type": "application/json" },
 		});
@@ -47,29 +47,36 @@ function makeClient(captured: Captured, privateKey?: string) {
 }
 
 describe("PayGatewayPaymentsModule paths", () => {
-	test("create → POST .../sites/{siteUid}/payments, тело плоское без siteUid, с Signature", async () => {
+	test("create → POST .../sites/{siteUid}/payments, тело в Data, с Signature", async () => {
 		const cap: Captured = {};
 		const pg = makeClient(cap, await pkcs8Pem());
 		await pg.payments.create({
 			siteUid: "site-1",
-			amount: "100.00",
+			paymentUid: "payment-1",
+			amount: { currency: "RUB", amount: "100.00" },
 			paymentMethod: { type: "SBP_TOKEN", token: "TKN123" },
 		});
 		expect(cap.method).toBe("POST");
 		expect(cap.url).toBe("https://pay.example/uapi/pay/v1.0/sites/site-1/payments");
 		const body = JSON.parse(cap.body ?? "{}");
 		expect(body.siteUid).toBeUndefined();
-		expect(body.amount).toBe("100.00");
-		expect(body.paymentMethod).toEqual({ type: "SBP_TOKEN", token: "TKN123" });
+		expect(body.Data.amount).toEqual({ currency: "RUB", amount: "100.00" });
+		expect(body.Data.paymentUid).toBe("payment-1");
+		expect(body.Data.paymentMethod).toEqual({ type: "SBP_TOKEN", token: "TKN123" });
 		expect(cap.headers?.Signature).toBeDefined();
 	});
 
 	test("create без privateKey на подписанном пути → ошибка", async () => {
 		const cap: Captured = {};
 		const pg = makeClient(cap);
-		await expect(pg.payments.create({ siteUid: "s", amount: "1.00" })).rejects.toThrow(
-			/requires signed body/,
-		);
+		await expect(
+			pg.payments.create({
+				siteUid: "s",
+				paymentUid: "p-1",
+				amount: { currency: "RUB", amount: "1.00" },
+				paymentMethod: { type: "SBP_TOKEN", token: "token" },
+			}),
+		).rejects.toThrow(/requires signed body/);
 	});
 
 	test("get → GET .../payments/{id}, без Signature (GET)", async () => {
@@ -81,21 +88,36 @@ describe("PayGatewayPaymentsModule paths", () => {
 		expect(cap.headers?.Signature).toBeUndefined();
 	});
 
-	test("capture → POST .../payments/{id}/capture с Signature", async () => {
+	test("capture → POST .../payments/{id}/captures с Signature", async () => {
 		const cap: Captured = {};
 		const pg = makeClient(cap, await pkcs8Pem());
-		await pg.payments.capture("site-1", "op-1", { amount: "50.00" });
-		expect(cap.url).toBe("https://pay.example/uapi/pay/v1.0/sites/site-1/payments/op-1/capture");
+		await pg.payments.capture("site-1", "op-1", {
+			captureUid: "capture-1",
+			amount: { currency: "RUB", amount: "50.00" },
+		});
+		expect(cap.url).toBe("https://pay.example/uapi/pay/v1.0/sites/site-1/payments/op-1/captures");
+		expect(JSON.parse(cap.body ?? "{}")).toEqual({
+			Data: {
+				captureUid: "capture-1",
+				amount: { currency: "RUB", amount: "50.00" },
+			},
+		});
 		expect(cap.headers?.Signature).toBeDefined();
 	});
 
-	test("refund → POST .../refunds, paymentUid в теле, с Signature", async () => {
+	test("refund → POST .../payments/{paymentUid}/refunds, тело в Data, с Signature", async () => {
 		const cap: Captured = {};
 		const pg = makeClient(cap, await pkcs8Pem());
-		await pg.payments.refund("site-1", { amount: "50.00", paymentUid: "p-orig" });
-		expect(cap.url).toBe("https://pay.example/uapi/pay/v1.0/sites/site-1/refunds");
+		await pg.payments.refund("site-1", "p-orig", {
+			refundUid: "refund-1",
+			amount: { currency: "RUB", amount: "50.00" },
+		});
+		expect(cap.url).toBe("https://pay.example/uapi/pay/v1.0/sites/site-1/payments/p-orig/refunds");
 		const body = JSON.parse(cap.body ?? "{}");
-		expect(body.paymentUid).toBe("p-orig");
+		expect(body.Data).toEqual({
+			refundUid: "refund-1",
+			amount: { currency: "RUB", amount: "50.00" },
+		});
 		expect(cap.headers?.Signature).toBeDefined();
 	});
 
@@ -108,35 +130,44 @@ describe("PayGatewayPaymentsModule paths", () => {
 });
 
 describe("PayGatewayPaymentsModule CARD + 3DS", () => {
-	test("create с CARD + tokenizationCredentials MIT — тело плоское", async () => {
+	test("create с сохранённой картой MIT — типизированное тело в Data", async () => {
 		const cap: Captured = {};
 		const pg = makeClient(cap, await pkcs8Pem());
 		await pg.payments.create({
 			siteUid: "site-1",
-			amount: "100.00",
+			paymentUid: "payment-1",
+			amount: { currency: "RUB", amount: "100.00" },
 			paymentMethod: {
-				type: "CARD",
-				tokenizationCredentials: { type: "MIT_CREDENTIAL_ON_FILE" },
+				type: "SAVED_CARD",
+				token: "0d7ebfd5-b751-4d52-8df5-b73b252f82df",
+				captureMode: "AUTO",
+				tokenizationCredentials: {
+					type: "MIT_CREDENTIAL_ON_FILE",
+					subtype: "RECURRING",
+				},
 			},
 		});
 		const body = JSON.parse(cap.body ?? "{}");
-		expect(body.Data).toBeUndefined();
-		expect(body.paymentMethod).toEqual({
-			type: "CARD",
-			tokenizationCredentials: { type: "MIT_CREDENTIAL_ON_FILE" },
+		expect(body.Data.paymentMethod).toEqual({
+			type: "SAVED_CARD",
+			token: "0d7ebfd5-b751-4d52-8df5-b73b252f82df",
+			captureMode: "AUTO",
+			tokenizationCredentials: {
+				type: "MIT_CREDENTIAL_ON_FILE",
+				subtype: "RECURRING",
+			},
 		});
 		expect(cap.headers?.Signature).toBeDefined();
 	});
 
-	test("complete → POST .../payments/{paymentUid}/complete, плоское {type,paRes}, без Signature", async () => {
+	test("complete → POST .../payments/{paymentUid}/complete, тело в Data, без Signature", async () => {
 		const cap: Captured = {};
 		const pg = makeClient(cap, await pkcs8Pem());
 		await pg.payments.complete("site-1", "p-1", { paRes: "PARES_VALUE" });
 		expect(cap.method).toBe("POST");
 		expect(cap.url).toBe("https://pay.example/uapi/pay/v1.0/sites/site-1/payments/p-1/complete");
 		const body = JSON.parse(cap.body ?? "{}");
-		expect(body.Data).toBeUndefined();
-		expect(body).toEqual({ type: "THREE_DS", paRes: "PARES_VALUE" });
+		expect(body).toEqual({ Data: { type: "THREE_DS", paRes: "PARES_VALUE" } });
 		// complete не входит в DEFAULT_SIGNED_PATHS — подпись не требуется.
 		expect(cap.headers?.Signature).toBeUndefined();
 	});
@@ -169,8 +200,14 @@ describe("PayGatewayPaymentsModule CARD + 3DS", () => {
 		});
 		const op = await pg.payments.create({
 			siteUid: "site-1",
-			amount: "100.00",
-			paymentMethod: { type: "CARD" },
+			paymentUid: "payment-1",
+			amount: { currency: "RUB", amount: "100.00" },
+			paymentMethod: {
+				type: "CARD",
+				pan: "4111111111111111",
+				expirationDate: "12/28",
+				captureMode: "AUTO",
+			},
 		});
 		// Поле берётся из Data, а не из корня конверта.
 		expect(op.paymentUid).toBe("p1");

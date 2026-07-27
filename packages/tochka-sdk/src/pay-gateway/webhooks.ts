@@ -1,25 +1,19 @@
 /**
- * Входящие вебхуки Pay Gateway (СБП). Отдельный контур от основного API Точки:
- * дискриминатор — пара `event` + `payloadType`, а не `webhookType`. Транспорт
- * тот же — JWT RS256 в теле POST (`Content-Type: text/plain`), тот же публичный
- * ключ Точки.
- *
- * Pay Gateway не публикует OpenAPI — вложенные поля `payload` типизированы по
- * документации (best-effort) и оставлены расширяемыми. Дискриминанты (`event`,
- * `payloadType`) и коды отказа взяты из docs.
- *
- * @see docs/tochka/scraped/webhooks.md
- * @see docs/tochka/scraped/api-references.md — reasonSource / reasonCode
+ * Входящие вебхуки Pay Gateway. Тело запроса — JWT RS256; после проверки
+ * подписи payload валидируется по дискриминаторам официальной OpenAPI.
  */
 
+import type { components } from "../_generated/pay-gateway.js";
 import {
 	type VerifyWebhookOptions,
-	WebhookVerificationError,
 	verifyWebhookJwt,
+	WebhookVerificationError,
 } from "../webhooks/verify-core.js";
 
-export { WebhookVerificationError } from "../webhooks/verify-core.js";
 export type { VerifyWebhookOptions, WebhookVerificationReason } from "../webhooks/verify-core.js";
+export { WebhookVerificationError } from "../webhooks/verify-core.js";
+
+type Schemas = components["schemas"];
 
 /** Источник причины отклонения операции. */
 export type PayGatewayReasonSource =
@@ -31,7 +25,7 @@ export type PayGatewayReasonSource =
 	| "FRAUD"
 	| (string & {});
 
-/** Коды отклонения, применимые к СБП-операциям (`api-references.md`). */
+/** Коды отклонения, применимые к СБП-операциям. */
 export type PayGatewaySbpReasonCode =
 	| "INTERNAL_ERROR"
 	| "TECH_ERROR"
@@ -55,78 +49,104 @@ export type PayGatewaySbpReasonCode =
 	| "REFUND_ID_ALREADY_TAKEN"
 	| (string & {});
 
-/** Привязка счёта выполнена — выпущен СБП-токен. */
-export interface SbpTokenIssuedWebhook {
+type TokenizationNotification = Schemas["TokenizationDecisionNotification"];
+
+export type SbpTokenIssuedWebhook = Omit<TokenizationNotification, "event" | "payload"> & {
 	event: "sbp-token-issued";
-	payloadType: "sbp-tokenization-decision";
-	payload: {
-		qrcId?: string;
-		token?: string;
-		status?: "ACCEPTED";
-		[key: string]: unknown;
-	};
-}
+	payload: Schemas["Accepted"];
+};
 
-/** Отказ в привязке счёта. */
-export interface SbpTokenDeclinedWebhook {
+export type SbpTokenDeclinedWebhook = Omit<TokenizationNotification, "event" | "payload"> & {
 	event: "sbp-token-declined";
-	payloadType: "sbp-tokenization-decision";
-	payload: {
-		qrcId?: string;
-		status?: "REJECTED";
-		reasonCode?: PayGatewaySbpReasonCode;
-		reasonSource?: PayGatewayReasonSource;
-		[key: string]: unknown;
-	};
-}
+	payload: Schemas["Rejected"];
+};
 
-/** Изменение статуса платежа (в т.ч. списания по СБП-токену). */
-export interface PaymentUpdatedWebhook {
-	event: "payment-updated";
-	payloadType: "payment";
-	payload: {
-		paymentUid?: string;
-		status?: {
-			value?: "COMPLETED" | "DECLINED" | (string & {});
-			reasonCode?: PayGatewaySbpReasonCode;
-			reasonSource?: PayGatewayReasonSource;
-			[key: string]: unknown;
-		};
-		[key: string]: unknown;
-	};
-}
+export type PaymentUpdatedWebhook = Schemas["PaymentUpdatedNotification"];
+export type CaptureUpdatedWebhook = Schemas["CaptureUpdatedNotification"];
+export type RefundUpdatedWebhook = Schemas["RefundUpdatedNotification"];
 
-/** Дискриминированный union вебхуков Pay Gateway. */
+/** Дискриминированный union всех webhook-событий Pay Gateway. */
 export type PayGatewayWebhookEvent =
 	| SbpTokenIssuedWebhook
 	| SbpTokenDeclinedWebhook
-	| PaymentUpdatedWebhook;
+	| PaymentUpdatedWebhook
+	| CaptureUpdatedWebhook
+	| RefundUpdatedWebhook;
 
 export type PayGatewayWebhookEventName = PayGatewayWebhookEvent["event"];
 
-const KNOWN_EVENTS: ReadonlySet<string> = new Set<PayGatewayWebhookEventName>([
-	"sbp-token-issued",
-	"sbp-token-declined",
-	"payment-updated",
-]);
+const PAYLOAD_TYPES: Readonly<Record<PayGatewayWebhookEventName, string>> = {
+	"sbp-token-issued": "sbp-tokenization-decision",
+	"sbp-token-declined": "sbp-tokenization-decision",
+	"payment-updated": "payment",
+	"capture-updated": "capture",
+	"refund-updated": "refund",
+};
 
-/**
- * Проверить подпись и распарсить вебхук Pay Gateway.
- *
- * @param rawBody — строка JWT из тела POST-запроса (Content-Type: text/plain).
- * @returns типизированное событие, дискриминируемое по `event`.
- */
+/** Проверить подпись и распарсить webhook Pay Gateway. */
 export async function verifyPayGatewayWebhook(
 	rawBody: string,
 	options: VerifyWebhookOptions = {},
 ): Promise<PayGatewayWebhookEvent> {
 	const payload = await verifyWebhookJwt(rawBody, options);
 	const event = payload.event;
-	if (typeof event !== "string" || !KNOWN_EVENTS.has(event)) {
-		throw new WebhookVerificationError(
-			`Unknown or missing Pay Gateway webhook event: ${JSON.stringify(event)}`,
-			"payload_shape",
-		);
+	if (typeof event !== "string" || !Object.hasOwn(PAYLOAD_TYPES, event)) {
+		throw shapeError(`Unknown or missing Pay Gateway webhook event: ${JSON.stringify(event)}`);
 	}
+	const eventName = event as PayGatewayWebhookEventName;
+	if (payload.payloadType !== PAYLOAD_TYPES[eventName]) {
+		throw shapeError(`Expected payloadType=${PAYLOAD_TYPES[eventName]} for event=${eventName}`);
+	}
+	assertString(payload, "version");
+	assertString(payload, "siteUid");
+	assertString(payload, "createdAt");
+	assertRecord(payload.payload, "payload");
+
+	if (eventName === "sbp-token-issued") {
+		assertEnum(payload.payload, "status", ["ACCEPTED"]);
+		assertStrings(payload.payload, ["qrcId", "metadata", "token", "memberId"]);
+	} else if (eventName === "sbp-token-declined") {
+		assertEnum(payload.payload, "status", ["REJECTED"]);
+		assertStrings(payload.payload, ["qrcId", "metadata"]);
+	} else if (eventName === "capture-updated") {
+		assertString(payload, "paymentUid");
+		assertStrings(payload.payload, ["captureUid", "createdDateTime"]);
+	} else if (eventName === "refund-updated") {
+		assertString(payload, "paymentUid");
+		assertStrings(payload.payload, ["refundUid", "createdDateTime", "metadata"]);
+	} else {
+		assertStrings(payload.payload, ["paymentUid", "createdDateTime", "metadata"]);
+	}
+
 	return payload as unknown as PayGatewayWebhookEvent;
+}
+
+function assertRecord(value: unknown, name: string): asserts value is Record<string, unknown> {
+	if (!value || typeof value !== "object" || Array.isArray(value)) {
+		throw shapeError(`Expected ${name} to be an object`);
+	}
+}
+
+function assertString(record: Record<string, unknown>, field: string): void {
+	if (typeof record[field] !== "string") {
+		throw shapeError(`Expected ${field} to be a string`);
+	}
+}
+
+function assertStrings(record: Record<string, unknown>, fields: readonly string[]): void {
+	for (const field of fields) assertString(record, field);
+}
+
+function assertEnum(
+	record: Record<string, unknown>,
+	field: string,
+	values: readonly string[],
+): void {
+	if (typeof record[field] !== "string" || !values.includes(record[field])) {
+		throw shapeError(`Expected ${field} to be one of: ${values.join(", ")}`);
+	}
+}
+
+function shapeError(message: string): WebhookVerificationError {
+	return new WebhookVerificationError(message, "payload_shape");
 }

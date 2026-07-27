@@ -15,8 +15,10 @@ npm-debug.log*
 !.vscode/settings.json
 !.vscode/extensions.json
 
-specs/openapi.prev.json
+specs/*.prev.json
 .sync-report.md
+packages/tochka-sdk/README.md
+packages/tochka-sdk/LICENSE
 
 .turbo
 .cache

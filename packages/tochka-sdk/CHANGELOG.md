@@ -4,7 +4,27 @@ Changelog ведётся автоматически через [onreza-release](
 
 ## [0.1.4] - 2026-06-22
 
+### 🐛 Fixed
+
+- Добавлена ранняя проверка взаимоисключающих режимов подписки интернет-эквайринга
+  `Options` и `recurring`, а также уточнён их публичный контракт
+  ([c6dc26d](https://github.com/ONREZA/tochka-sdk-ts/commit/c6dc26d)).
+
 ## [0.1.3] - 2026-06-02
+
+### ✨ Features
+
+- Добавлены рекуррентные платежи СБП через функциональные ссылки, оплата
+  `SBP_TOKEN` и проверка webhook Pay Gateway
+  ([4fd1891](https://github.com/ONREZA/tochka-sdk-ts/commit/4fd1891)).
+- Добавлены карточные платежи, card-on-file, завершение 3-D Secure и корректное
+  извлечение полезной нагрузки из конверта `Data`
+  ([1971c61](https://github.com/ONREZA/tochka-sdk-ts/commit/1971c61)).
+
+### ⚠️ Breaking changes
+
+- Методы платежей Pay Gateway используют документированные пути
+  `/uapi/pay/v1.0/sites/{siteUid}/...`; `siteUid` передаётся в каждый вызов.
 
 ## [0.1.2] - 2026-06-01
 

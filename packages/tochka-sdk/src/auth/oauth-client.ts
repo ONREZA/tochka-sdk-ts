@@ -22,6 +22,8 @@ export interface OAuthClientOptions {
 	/** По умолчанию — прод `https://enter.tochka.com`. */
 	authServerUrl?: string;
 	fetch?: typeof fetch;
+	/** Таймаут каждого OAuth HTTP-запроса. `0` отключает таймаут. */
+	timeoutMs?: number;
 }
 
 export interface TokenResponse {
@@ -73,13 +75,32 @@ function buildOAuthErrorMessage(status: number, body: unknown): string {
 export class OAuthClient {
 	private readonly authServerUrl: string;
 	private readonly fetchImpl: typeof fetch;
+	private readonly timeoutMs: number | undefined;
 
 	constructor(private readonly opts: OAuthClientOptions) {
 		if (!opts.clientId || !opts.clientSecret) {
 			throw new Error("OAuthClient: clientId and clientSecret are required");
 		}
-		this.authServerUrl = (opts.authServerUrl ?? DEFAULT_AUTH_SERVER).replace(/\/+$/, "");
+		const authServerUrl = new URL(opts.authServerUrl ?? DEFAULT_AUTH_SERVER);
+		if (!["http:", "https:"].includes(authServerUrl.protocol)) {
+			throw new Error("OAuthClient: authServerUrl must use http or https");
+		}
+		if (
+			authServerUrl.username ||
+			authServerUrl.password ||
+			authServerUrl.search ||
+			authServerUrl.hash
+		) {
+			throw new Error(
+				"OAuthClient: authServerUrl must not contain credentials, query, or fragment",
+			);
+		}
+		if (opts.timeoutMs !== undefined && (!Number.isFinite(opts.timeoutMs) || opts.timeoutMs < 0)) {
+			throw new Error("OAuthClient: timeoutMs must be finite and non-negative");
+		}
+		this.authServerUrl = authServerUrl.toString().replace(/\/+$/, "");
 		this.fetchImpl = opts.fetch ?? fetch;
+		this.timeoutMs = opts.timeoutMs;
 	}
 
 	/** Получить технический токен для создания consent-ов. */
@@ -141,16 +162,15 @@ export class OAuthClient {
 	 * (hybrid access token); для декодирования используйте `jose.decodeJwt`.
 	 */
 	async introspect(accessToken: string): Promise<string> {
-		const res = await this.fetchImpl(`${this.authServerUrl}/connect/introspect`, {
+		const { response, text } = await this.request("/connect/introspect", {
 			method: "POST",
 			headers: { "Content-Type": "application/x-www-form-urlencoded" },
 			body: new URLSearchParams({ access_token: accessToken }).toString(),
 		});
-		if (!res.ok) {
-			const body = await safeJson(res);
-			throw new OAuthTokenError(res.status, body);
+		if (!response.ok) {
+			throw new OAuthTokenError(response.status, safeJson(text));
 		}
-		return res.text();
+		return text;
 	}
 
 	private async token(body: Record<string, string>): Promise<TokenResponse> {
@@ -159,7 +179,7 @@ export class OAuthClient {
 			client_id: this.opts.clientId,
 			client_secret: this.opts.clientSecret,
 		});
-		const res = await this.fetchImpl(`${this.authServerUrl}/connect/token`, {
+		const { response, text } = await this.request("/connect/token", {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/x-www-form-urlencoded",
@@ -167,17 +187,54 @@ export class OAuthClient {
 			},
 			body: params.toString(),
 		});
-		const parsed = await safeJson(res);
-		if (!res.ok) throw new OAuthTokenError(res.status, parsed);
+		const parsed = safeJson(text);
+		if (!response.ok) throw new OAuthTokenError(response.status, parsed);
+		const token = parsed as Partial<TokenResponse> | null;
 		if (
-			!parsed ||
-			typeof parsed !== "object" ||
-			typeof (parsed as { access_token?: unknown }).access_token !== "string"
+			!token ||
+			typeof token !== "object" ||
+			typeof token.access_token !== "string" ||
+			token.access_token.trim() === "" ||
+			typeof token.token_type !== "string" ||
+			token.token_type.toLowerCase() !== "bearer" ||
+			typeof token.expires_in !== "number" ||
+			!Number.isFinite(token.expires_in) ||
+			token.expires_in < 0 ||
+			!isOptionalString(token.refresh_token) ||
+			!isOptionalString(token.scope) ||
+			!isOptionalString(token.user_id) ||
+			!(token.state === undefined || token.state === null || typeof token.state === "string")
 		) {
-			throw new OAuthTokenError(res.status, parsed);
+			throw new OAuthTokenError(response.status, parsed);
 		}
-		return parsed as TokenResponse;
+		return token as TokenResponse;
 	}
+
+	private async request(
+		path: string,
+		init: RequestInit,
+	): Promise<{ response: Response; text: string }> {
+		const controller = this.timeoutMs ? new AbortController() : undefined;
+		const timer = controller
+			? setTimeout(
+					() => controller.abort(new Error(`OAuth request timed out after ${this.timeoutMs}ms`)),
+					this.timeoutMs,
+				)
+			: undefined;
+		try {
+			const response = await this.fetchImpl(`${this.authServerUrl}${path}`, {
+				...init,
+				...(controller ? { signal: controller.signal } : {}),
+			});
+			return { response, text: await response.text() };
+		} finally {
+			if (timer !== undefined) clearTimeout(timer);
+		}
+	}
+}
+
+function isOptionalString(value: unknown): value is string | undefined {
+	return value === undefined || typeof value === "string";
 }
 
 function normaliseScope(scope: string | readonly string[] | undefined): string | undefined {
@@ -185,8 +242,7 @@ function normaliseScope(scope: string | readonly string[] | undefined): string |
 	return Array.isArray(scope) ? scope.join(" ") : (scope as string);
 }
 
-async function safeJson(res: Response): Promise<unknown> {
-	const text = await res.text();
+function safeJson(text: string): unknown {
 	try {
 		return JSON.parse(text);
 	} catch {

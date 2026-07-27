@@ -25,7 +25,7 @@ export interface TochkaErrorDetail {
 }
 
 export interface TochkaErrorPayload {
-	code?: number;
+	code?: number | string;
 	id?: string;
 	/** Категория ошибки от банка (не человекочитаемое сообщение). */
 	message?: TochkaErrorCategory;
@@ -125,7 +125,7 @@ export class ServiceUnavailableError extends TochkaError {
 
 /** Сетевые/транспортные сбои до получения HTTP-ответа. */
 export class TochkaNetworkError extends Error {
-	override readonly name = "TochkaNetworkError";
+	override readonly name: string = "TochkaNetworkError";
 	readonly url: string;
 	readonly method: string;
 	constructor(message: string, opts: { url: string; method: string; cause?: unknown }) {
@@ -133,6 +133,14 @@ export class TochkaNetworkError extends Error {
 		this.url = opts.url;
 		this.method = opts.method;
 	}
+}
+
+/**
+ * Сервер мог применить mutating-запрос, но клиент не получил подтверждение.
+ * Автоматически повторять такую операцию без server-side idempotency нельзя.
+ */
+export class TochkaUnknownOutcomeError extends TochkaNetworkError {
+	override readonly name = "TochkaUnknownOutcomeError";
 }
 
 /** Внутренний invariant-violation (не ошибка банка). */
