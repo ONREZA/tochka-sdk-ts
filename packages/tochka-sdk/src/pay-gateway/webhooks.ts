@@ -83,6 +83,15 @@ const PAYLOAD_TYPES: Readonly<Record<PayGatewayWebhookEventName, string>> = {
 	"refund-updated": "refund",
 };
 
+const PAYMENT_METHOD_TYPES = [
+	"CARD",
+	"SBP_CUSTOMER_PRESENTED_QR",
+	"SBP",
+	"SBP_TOKEN",
+	"SAVED_CARD",
+	"SBP_CASH_REGISTER_QRC",
+] as const;
+
 /** Проверить подпись и распарсить webhook Pay Gateway. */
 export async function verifyPayGatewayWebhook(
 	rawBody: string,
@@ -97,7 +106,7 @@ export async function verifyPayGatewayWebhook(
 	if (payload.payloadType !== PAYLOAD_TYPES[eventName]) {
 		throw shapeError(`Expected payloadType=${PAYLOAD_TYPES[eventName]} for event=${eventName}`);
 	}
-	assertString(payload, "version");
+	assertEnum(payload, "version", ["1.0"]);
 	assertString(payload, "siteUid");
 	assertString(payload, "createdAt");
 	assertRecord(payload.payload, "payload");
@@ -110,15 +119,83 @@ export async function verifyPayGatewayWebhook(
 		assertStrings(payload.payload, ["qrcId", "metadata"]);
 	} else if (eventName === "capture-updated") {
 		assertString(payload, "paymentUid");
-		assertStrings(payload.payload, ["captureUid", "createdDateTime"]);
+		assertOptionalString(payload, "invoiceUid");
+		assertCapturePayload(payload.payload);
 	} else if (eventName === "refund-updated") {
 		assertString(payload, "paymentUid");
-		assertStrings(payload.payload, ["refundUid", "createdDateTime", "metadata"]);
+		assertOptionalString(payload, "invoiceUid");
+		assertRefundPayload(payload.payload);
 	} else {
-		assertStrings(payload.payload, ["paymentUid", "createdDateTime", "metadata"]);
+		assertOptionalString(payload, "invoiceUid");
+		assertPaymentPayload(payload.payload);
 	}
 
 	return payload as unknown as PayGatewayWebhookEvent;
+}
+
+function assertPaymentPayload(payload: Record<string, unknown>): void {
+	assertStrings(payload, ["paymentUid", "createdDateTime", "metadata"]);
+	assertMoney(payload.amount, "amount");
+	assertMoney(payload.refundedAmount, "refundedAmount");
+	assertChargebackSummary(payload.chargebackSummary);
+	assertPaymentMethod(payload.paymentMethod);
+	assertStatus(payload.status);
+	assertBoolean(payload, "isTest");
+}
+
+function assertCapturePayload(payload: Record<string, unknown>): void {
+	assertStrings(payload, ["captureUid", "createdDateTime"]);
+	assertMoney(payload.amount, "amount");
+	assertStatus(payload.status);
+}
+
+function assertRefundPayload(payload: Record<string, unknown>): void {
+	assertStrings(payload, ["refundUid", "createdDateTime", "metadata"]);
+	assertMoney(payload.amount, "amount");
+	assertStatus(payload.status);
+}
+
+function assertMoney(value: unknown, name: string): void {
+	assertRecord(value, name);
+	assertStrings(value, ["amount", "currency"]);
+}
+
+function assertChargebackSummary(value: unknown): void {
+	assertRecord(value, "chargebackSummary");
+	assertMoney(value.chargedAmount, "chargebackSummary.chargedAmount");
+	assertMoney(value.reversedAmount, "chargebackSummary.reversedAmount");
+}
+
+function assertPaymentMethod(value: unknown): void {
+	assertRecord(value, "paymentMethod");
+	assertEnum(value, "type", PAYMENT_METHOD_TYPES);
+	switch (value.type) {
+		case "CARD":
+			assertEnum(value, "captureMode", ["AUTO", "MANUAL"]);
+			assertString(value, "maskedPan");
+			assertMoney(value.capturedAmount, "paymentMethod.capturedAmount");
+			break;
+		case "SAVED_CARD":
+			assertEnum(value, "captureMode", ["AUTO", "MANUAL"]);
+			assertString(value, "token");
+			assertMoney(value.capturedAmount, "paymentMethod.capturedAmount");
+			break;
+		case "SBP_CASH_REGISTER_QRC":
+			assertStrings(value, ["qrcId", "activationUid"]);
+			break;
+		default:
+			assertString(value, "qrcId");
+	}
+}
+
+function assertStatus(value: unknown): void {
+	assertRecord(value, "status");
+	assertEnum(value, "value", ["COMPLETED", "DECLINED", "WAITING"]);
+	assertString(value, "changedDateTime");
+	if (value.value === "DECLINED") {
+		assertStrings(value, ["reasonCode", "reasonMessage", "reasonSource"]);
+		assertOptionalString(value, "psErrorCode");
+	}
 }
 
 function assertRecord(value: unknown, name: string): asserts value is Record<string, unknown> {
@@ -135,6 +212,18 @@ function assertString(record: Record<string, unknown>, field: string): void {
 
 function assertStrings(record: Record<string, unknown>, fields: readonly string[]): void {
 	for (const field of fields) assertString(record, field);
+}
+
+function assertOptionalString(record: Record<string, unknown>, field: string): void {
+	if (record[field] !== undefined && typeof record[field] !== "string") {
+		throw shapeError(`Expected ${field} to be a string`);
+	}
+}
+
+function assertBoolean(record: Record<string, unknown>, field: string): void {
+	if (typeof record[field] !== "boolean") {
+		throw shapeError(`Expected ${field} to be a boolean`);
+	}
 }
 
 function assertEnum(

@@ -58,4 +58,30 @@ describe("buildOpenApiDiff", () => {
 		expect(report).toContain("`GET /old`");
 		expect(report).toContain("`GET /changed`");
 	});
+
+	test("показывает удалённые enum-значения внутри composed schema arrays", () => {
+		const previous = {
+			components: {
+				schemas: {
+					Event: {
+						oneOf: [{ allOf: [{ enum: ["known", "removed"] }] }],
+					},
+				},
+			},
+		};
+		const current = {
+			components: {
+				schemas: {
+					Event: {
+						oneOf: [{ allOf: [{ enum: ["known"] }] }],
+					},
+				},
+			},
+		};
+
+		const report = buildOpenApiDiff(current, previous);
+		expect(report).toContain(
+			"`Event.oneOf[0].allOf[0]`: удалено enum-значение `removed` ⚠️ breaking",
+		);
+	});
 });

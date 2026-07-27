@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
-import { verifyWebhook, WebhookVerificationError } from "../../src/webhooks/index.js";
+import {
+	createWebhookKeyResolver,
+	verifyWebhook,
+	WebhookVerificationError,
+} from "../../src/webhooks/index.js";
 
 async function makeKeypair() {
 	const { publicKey, privateKey } = await generateKeyPair("RS256", { modulusLength: 2048 });
@@ -8,8 +12,14 @@ async function makeKeypair() {
 	return { publicKey, privateKey, jwk };
 }
 
-async function sign(privateKey: CryptoKey, payload: Record<string, unknown>): Promise<string> {
-	return new SignJWT(payload).setProtectedHeader({ alg: "RS256" }).sign(privateKey);
+async function sign(
+	privateKey: CryptoKey,
+	payload: Record<string, unknown>,
+	kid?: string,
+): Promise<string> {
+	return new SignJWT(payload)
+		.setProtectedHeader(kid ? { alg: "RS256", kid } : { alg: "RS256" })
+		.sign(privateKey);
 }
 
 describe("verifyWebhook", () => {
@@ -200,5 +210,37 @@ describe("verifyWebhook", () => {
 				jwtOptions: { algorithms: ["HS256", "RS256"] },
 			}),
 		).rejects.toBeInstanceOf(WebhookVerificationError);
+	});
+
+	test("cached JWKS обновляется один раз при ротации kid", async () => {
+		const first = await makeKeypair();
+		const second = await makeKeypair();
+		const firstJwk = { ...first.jwk, alg: "RS256", kid: "key-1", use: "sig" };
+		const secondJwk = { ...second.jwk, alg: "RS256", kid: "key-2", use: "sig" };
+		const originalFetch = globalThis.fetch;
+		let fetches = 0;
+		globalThis.fetch = (async () => {
+			fetches += 1;
+			return Response.json({ keys: fetches === 1 ? [firstJwk] : [secondJwk] });
+		}) as typeof fetch;
+
+		try {
+			const resolver = createWebhookKeyResolver({
+				url: "https://keys.example.test/jwks",
+				cacheMaxAgeMs: 60_000,
+			});
+			const firstJwt = await sign(first.privateKey, { webhookType: "customWebhook" }, "key-1");
+			await verifyWebhook(firstJwt, { keyResolver: resolver });
+
+			const secondJwt = await sign(second.privateKey, { webhookType: "customWebhook" }, "key-2");
+			await Promise.all([
+				verifyWebhook(secondJwt, { keyResolver: resolver }),
+				verifyWebhook(secondJwt, { keyResolver: resolver }),
+			]);
+
+			expect(fetches).toBe(2);
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
 	});
 });

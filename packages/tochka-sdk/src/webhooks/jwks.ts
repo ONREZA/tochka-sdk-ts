@@ -1,4 +1,11 @@
-import { type CryptoKey, createLocalJWKSet, importJWK, type JWK, type KeyObject } from "jose";
+import {
+	type CryptoKey,
+	createLocalJWKSet,
+	importJWK,
+	type JWK,
+	errors as joseErrors,
+	type KeyObject,
+} from "jose";
 
 export const TOCHKA_WEBHOOK_JWKS_URL =
 	"https://enter.tochka.com/doc/openapi/static/keys/public" as const;
@@ -62,7 +69,7 @@ export function createWebhookKeyResolver(source: WebhookKeySource = {}): KeyReso
 	let cache: { resolver: KeyResolver; expiresAt: number } | undefined;
 	let loading: Promise<KeyResolver> | undefined;
 
-	return async (protectedHeader, token) => {
+	const getResolver = async (): Promise<KeyResolver> => {
 		const now = Date.now();
 		if (!cache || cache.expiresAt <= now) {
 			loading ??= fetchRemoteJwks(url);
@@ -72,7 +79,19 @@ export function createWebhookKeyResolver(source: WebhookKeySource = {}): KeyReso
 				loading = undefined;
 			}
 		}
-		return cache.resolver(protectedHeader, token);
+		return cache.resolver;
+	};
+
+	return async (protectedHeader, token) => {
+		const resolver = await getResolver();
+		try {
+			return await resolver(protectedHeader, token);
+		} catch (cause) {
+			if (!(cause instanceof joseErrors.JWKSNoMatchingKey)) throw cause;
+			if (cache?.resolver === resolver) cache = undefined;
+			const refreshedResolver = await getResolver();
+			return refreshedResolver(protectedHeader, token);
+		}
 	};
 }
 

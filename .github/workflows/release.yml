@@ -21,10 +21,20 @@ jobs:
       release_created: ${{ steps.release.outputs['packages/tochka-sdk--release_created'] }}
       tag_name: ${{ steps.release.outputs['packages/tochka-sdk--tag_name'] }}
     steps:
+      - name: Require event-triggering token
+        env:
+          RELEASE_PLEASE_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+        run: |
+          if [ -z "$RELEASE_PLEASE_TOKEN" ]; then
+            echo "::error::Organization secret RELEASE_PLEASE_TOKEN is required"
+            exit 1
+          fi
+
       - name: Run release-please
         id: release
         uses: googleapis/release-please-action@v5
         with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 

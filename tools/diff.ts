@@ -77,6 +77,15 @@ function enumChanges(
 	path = "",
 ): Array<{ path: string; added: string[]; removed: string[] }> {
 	const changes: Array<{ path: string; added: string[]; removed: string[] }> = [];
+	if (Array.isArray(next) || Array.isArray(prev)) {
+		const nextItems = Array.isArray(next) ? next : [];
+		const prevItems = Array.isArray(prev) ? prev : [];
+		for (let index = 0; index < Math.max(nextItems.length, prevItems.length); index += 1) {
+			const childPath = `${path}[${index}]`;
+			changes.push(...enumChanges(nextItems[index], prevItems[index], childPath));
+		}
+		return changes;
+	}
 	const nextObject = asObject(next);
 	const prevObject = asObject(prev);
 	const nextEnum = strings(nextObject.enum);

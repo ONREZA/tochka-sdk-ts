@@ -66,10 +66,10 @@ export function buildFetchClient(init: TochkaFetchInit): TochkaFetchClient {
 	const client = createClient<paths>(options);
 	client.use(authMiddleware(init.auth));
 	client.use(errorMiddleware());
-	const telemetry = telemetryMiddleware(init);
-	if (telemetry) client.use(telemetry);
 	const timeout = timeoutMiddleware(init.timeoutMs);
 	if (timeout) client.use(timeout);
+	const telemetry = telemetryMiddleware(init);
+	if (telemetry) client.use(telemetry);
 	return client;
 }
 
