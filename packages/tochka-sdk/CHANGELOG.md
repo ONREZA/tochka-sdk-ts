@@ -4,6 +4,17 @@ Changelog ведётся автоматически через
 [release-please](https://github.com/googleapis/release-please) на основе
 [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.2.0](https://github.com/ONREZA/tochka-sdk-ts/compare/v0.1.5...v0.2.0) (2026-07-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* **tochka-sdk:** v0.1.5 contained the Node.js 24 and runtime contract changes under a patch version. Release them forward as v0.2.0.
+
+### 🐛 Bug Fixes
+
+* **tochka-sdk:** adopt release-please ([#13](https://github.com/ONREZA/tochka-sdk-ts/issues/13)) ([7c9f832](https://github.com/ONREZA/tochka-sdk-ts/commit/7c9f83287a9d8748d73b9a1d1bbb05f082cf8f87))
+
 ## [0.1.5] - 2026-07-27
 
 ### ⚠️ Breaking changes
