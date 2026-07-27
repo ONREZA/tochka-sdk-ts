@@ -1,0 +1,25 @@
+{
+	"$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+	"release-type": "node",
+	"include-v-in-tag": true,
+	"include-component-in-tag": false,
+	"bump-minor-pre-major": true,
+	"changelog-sections": [
+		{ "type": "feat", "section": "✨ Features" },
+		{ "type": "fix", "section": "🐛 Bug Fixes" },
+		{ "type": "perf", "section": "⚡ Performance" },
+		{ "type": "docs", "section": "📚 Documentation" },
+		{ "type": "refactor", "section": "♻️ Changed" },
+		{ "type": "style", "section": "🎨 Changed" },
+		{ "type": "chore", "section": "🔧 Changed" },
+		{ "type": "ci", "section": "👷 CI/CD" },
+		{ "type": "test", "section": "✅ Testing" }
+	],
+	"packages": {
+		"packages/tochka-sdk": {
+			"component": "tochka-sdk",
+			"package-name": "@onreza/tochka-sdk",
+			"changelog-path": "CHANGELOG.md"
+		}
+	}
+}

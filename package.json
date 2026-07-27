@@ -23,14 +23,12 @@
 		"spec:sync": "bun tools/sync.ts",
 		"package:check": "bun tools/check-package.ts",
 		"verify": "bun run gen:check && bun run lint && bun run typecheck && bun run typecheck:tools && bun run typecheck:portable && bun run test && bun run build && bun run package:check",
-		"prepare": "lefthook install || echo 'Install lefthook: https://github.com/evilmartians/lefthook'",
-		"release": "onreza-release"
+		"prepare": "lefthook install || echo 'Install lefthook: https://github.com/evilmartians/lefthook'"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.5.5",
 		"@types/bun": "1.3.14",
 		"lefthook": "2.1.10",
-		"onreza-release": "2.7.0",
 		"openapi-typescript": "7.13.0",
 		"typescript": "6.0.3"
 	},

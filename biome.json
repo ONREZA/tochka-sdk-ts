@@ -65,9 +65,7 @@
 			"!**/docs",
 			"!**/specs",
 			"!**/coverage",
-			"!**/.changeset",
-			"!**/.onrezarelease.jsonc",
-			"!**/commitlint.config.js"
+			"!**/.changeset"
 		]
 	}
 }

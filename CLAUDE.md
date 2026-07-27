@@ -150,14 +150,16 @@ const event = await verifyWebhook(rawBody);
 
 ## Релизы
 
-Через `onreza-release` (внутренний tool) + `cocogitto` + `lefthook`:
+Через `release-please` + `cocogitto` + `lefthook`:
 
-- `Release` workflow запускается вручную (`workflow_dispatch`). Bump версии по conventional-commits (`feat` → minor, `fix` → patch, `feat!` → major).
-- Release-tool сериализует `packages/tochka-sdk/package.json` с двумя пробелами;
-  Biome override намеренно использует тот же формат. Не переносить этот файл на
-  tabs: это снова сломает ежедневный sync после каждого релиза.
+- Каждый push в `main` создаёт или обновляет release PR. Merge release PR
+  создаёт тег и GitHub Release; для изменений пакета используем scope
+  `tochka-sdk`.
+- В pre-1.0 breaking change повышает minor-версию.
+- Node updater сериализует `packages/tochka-sdk/package.json` с двумя пробелами;
+  Biome override намеренно использует тот же формат.
 - Публикация в npm через **trusted publishing (OIDC)** — без `NPM_TOKEN`;
-  release workflow использует поддерживаемый Node 24.
+  точный release tag сначала проходит полный `verify` на Node 24.
 - Ежедневный cron `sync-openapi.yml` обновляет обе спецификации и создаёт PR с
   regenerated types и semantic diff.
 
@@ -165,7 +167,7 @@ const event = await verifyWebhook(rawBody);
 
 - **Минимум комментариев.** Только когда объясняют неочевидный *why* (hidden invariant, воркэраунд бага, кроссрантаймный gotcha). Никаких «added for issue #X» и ритуальных JSDoc над тривиальными геттерами.
 - **Никаких «Generated with Claude Code» футеров и Co-Authored-By Claude.** В коммитах и PR.
-- **Conventional Commits обязательны** (проверяет lefthook локально + `cog check` в CI на PR). Типы: feat, fix, perf, docs, refactor, style, chore, ci, test, build, revert. Scope-лист в `.onrezarelease.jsonc` → `commitlint.scopes`.
+- **Conventional Commits обязательны** (проверяет lefthook локально + `cog check` в CI на PR). Типы: feat, fix, perf, docs, refactor, style, chore, ci, test, build, revert. Для изменений опубликованного пакета scope — `tochka-sdk`.
 - **Файлы/функции**: `camelCase`. Типы/классы: `PascalCase`. Константы: `SCREAMING_SNAKE`.
 - **Публичный API** — только то, что экспортится из `src/index.ts` / `src/webhooks/index.ts` / `src/pay-gateway/index.ts` / `src/errors/index.ts`. Всё остальное — internal.
 - **tsconfig строгий**: `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`. Не ослаблять.
