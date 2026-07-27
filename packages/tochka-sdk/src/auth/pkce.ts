@@ -1,7 +1,7 @@
 /**
  * PKCE (Proof Key for Code Exchange, RFC 7636).
  *
- * Работает кроссрантаймно через `globalThis.crypto.subtle` — Node 18+, Bun, Deno,
+ * Работает кроссрантаймно через `globalThis.crypto.subtle` — Node 24+, Bun, Deno,
  * Cloudflare Workers.
  */
 

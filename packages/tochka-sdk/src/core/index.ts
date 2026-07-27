@@ -1,11 +1,12 @@
-export { buildFetchClient, makeRetryingFetch } from "./http.js";
 export type { TochkaFetchClient, TochkaFetchInit } from "./http.js";
+export { buildFetchClient, makeRetryingFetch } from "./http.js";
+export type { RetryOptions } from "./retry.js";
 export {
-	DEFAULT_RETRY,
 	computeBackoffMs,
+	DEFAULT_RETRY,
 	isAbortError,
 	parseRetryAfter,
+	resolveRetryOptions,
 	sleep,
 	validateRetryOptions,
 } from "./retry.js";
-export type { RetryOptions } from "./retry.js";

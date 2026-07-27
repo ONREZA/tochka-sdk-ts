@@ -1,17 +1,15 @@
 {
-	"$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.5.5/schema.json",
 	"vcs": {
 		"enabled": true,
 		"clientKind": "git",
 		"useIgnoreFile": true
 	},
-	"organizeImports": {
-		"enabled": true
-	},
+	"assist": { "actions": { "source": { "organizeImports": "on" } } },
 	"linter": {
 		"enabled": true,
 		"rules": {
-			"recommended": true,
+			"preset": "recommended",
 			"style": {
 				"noNonNullAssertion": "warn",
 				"useImportType": "error",
@@ -47,18 +45,29 @@
 			"indentStyle": "tab"
 		}
 	},
+	"overrides": [
+		{
+			"includes": ["packages/tochka-sdk/package.json"],
+			"json": {
+				"formatter": {
+					"indentStyle": "space"
+				}
+			}
+		}
+	],
 	"files": {
-		"ignore": [
-			"dist",
-			"node_modules",
-			"packages/*/src/_generated/**",
-			"packages/*/dist",
-			"docs",
-			"specs",
-			"coverage",
-			".changeset",
-			".onrezarelease.jsonc",
-			"commitlint.config.js"
+		"includes": [
+			"**",
+			"!**/dist",
+			"!**/node_modules",
+			"!**/packages/**/*/src/_generated",
+			"!**/packages/**/*/dist",
+			"!**/docs",
+			"!**/specs",
+			"!**/coverage",
+			"!**/.changeset",
+			"!**/.onrezarelease.jsonc",
+			"!**/commitlint.config.js"
 		]
 	}
 }

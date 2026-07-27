@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { makeRetryingFetch } from "../../src/core/http.js";
 import { DEFAULT_RETRY } from "../../src/core/retry.js";
-import { TochkaNetworkError } from "../../src/errors/index.js";
+import { TochkaNetworkError, TochkaUnknownOutcomeError } from "../../src/errors/index.js";
 
 function stubFetch(responses: Array<() => Response | Error>): {
 	fetch: typeof fetch;
@@ -102,6 +102,16 @@ describe("makeRetryingFetch", () => {
 		expect(calls.n).toBe(1);
 	});
 
+	test("AbortError на POST означает unknown outcome", async () => {
+		const err = new DOMException("Aborted", "AbortError");
+		const { fetch, calls } = stubFetch([() => err]);
+		const retrying = makeRetryingFetch(FAST_RETRY, fetch);
+		await expect(retrying("http://x", { method: "POST", body: "{}" })).rejects.toBeInstanceOf(
+			TochkaUnknownOutcomeError,
+		);
+		expect(calls.n).toBe(1);
+	});
+
 	test("Retry-After header используется вместо backoff", async () => {
 		const { fetch, calls } = stubFetch([
 			() => new Response("", { status: 429, headers: { "Retry-After": "0" } }),
@@ -118,5 +128,46 @@ describe("makeRetryingFetch", () => {
 
 	test("maxAttempts=0 → падает в validateRetryOptions", () => {
 		expect(() => makeRetryingFetch({ ...FAST_RETRY, maxAttempts: 0 })).toThrow();
+	});
+
+	test("POST не ретраится на 503 по умолчанию", async () => {
+		const { fetch, calls } = stubFetch([
+			() => new Response("", { status: 503 }),
+			() => new Response("ok", { status: 200 }),
+		]);
+		const retrying = makeRetryingFetch(FAST_RETRY, fetch);
+		const res = await retrying("http://x", { method: "POST", body: "{}" });
+		expect(res.status).toBe(503);
+		expect(calls.n).toBe(1);
+	});
+
+	test("POST с транспортной ошибкой возвращает unknown outcome без повтора", async () => {
+		const { fetch, calls } = stubFetch([() => new TypeError("connection reset")]);
+		const retrying = makeRetryingFetch(FAST_RETRY, fetch);
+		await expect(retrying("http://x", { method: "POST", body: "{}" })).rejects.toBeInstanceOf(
+			TochkaUnknownOutcomeError,
+		);
+		expect(calls.n).toBe(1);
+	});
+
+	test("явный opt-in позволяет повторить POST с клонированным body", async () => {
+		const bodies: string[] = [];
+		let calls = 0;
+		const fetch = (async (input: RequestInfo | URL) => {
+			calls += 1;
+			const request = input as Request;
+			bodies.push(await request.text());
+			return new Response(calls === 1 ? "" : "ok", { status: calls === 1 ? 503 : 200 });
+		}) as typeof globalThis.fetch;
+		const retrying = makeRetryingFetch(
+			{ ...FAST_RETRY, retryableMethods: new Set(["POST"]) },
+			fetch,
+		);
+		const res = await retrying("http://x", {
+			method: "POST",
+			body: JSON.stringify({ id: 1 }),
+		});
+		expect(res.status).toBe(200);
+		expect(bodies).toEqual(['{"id":1}', '{"id":1}']);
 	});
 });

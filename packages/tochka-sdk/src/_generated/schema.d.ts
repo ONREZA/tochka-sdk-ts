@@ -1992,6 +1992,8 @@ export type components = {
             amount: number;
             /** Данные покупателя */
             Client?: components["schemas"]["ReceiptClientModel"];
+            /** Информация о карте плательщика */
+            CofToken?: components["schemas"]["CofTokenModel"];
             /**
              * Идентификатор покупателя
              * @example fedac807-078d-45ac-a43b-5c01c57edbf8
@@ -2321,6 +2323,8 @@ export type components = {
             amount: number;
             /** Данные покупателя */
             Client?: components["schemas"]["ReceiptClientModel"];
+            /** Информация о карте плательщика */
+            CofToken?: components["schemas"]["CofTokenModel"];
             /**
              * Идентификатор покупателя
              * @example fedac807-078d-45ac-a43b-5c01c57edbf8
@@ -2940,6 +2944,24 @@ export type components = {
             /** Сторона заказчика/покупателя в сделке в документе */
             SecondSide: components["schemas"]["SecondSideModel"];
         };
+        /** CofTokenModel */
+        CofTokenModel: {
+            /**
+             * Тип платёжной системы
+             * @example Mir
+             */
+            cardType?: string;
+            /**
+             * Маскированный номер карты
+             * @example 220445******0792
+             */
+            maskedPan?: string;
+            /**
+             * Токен карты покупателя
+             * @example 208452
+             */
+            tokenCardId?: string;
+        };
         /** Something going wrongResponse */
         common__errors_models__Something_going_wrongResponse__1: {
             /**
@@ -3156,7 +3178,7 @@ export type components = {
          * ConsentTypeEnum
          * @enum {string}
          */
-        ConsentTypeEnum: "ReadAccountsBasic" | "ReadAccountsDetail" | "ReadBalances" | "ReadStatements" | "ReadTransactionsBasic" | "ReadTransactionsCredits" | "ReadTransactionsDebits" | "ReadTransactionsDetail" | "ReadCustomerData" | "ReadSBPData" | "EditSBPData" | "ReadSBPData1C" | "EditSBPData1C" | "CreatePaymentForSign" | "CreatePaymentOrder" | "ReadAcquiringData" | "MakeAcquiringOperation" | "ManageInvoiceData" | "ManageWebhookData" | "MakeCustomer" | "ManageGuarantee";
+        ConsentTypeEnum: "ReadAccountsBasic" | "ReadAccountsDetail" | "ReadBalances" | "ReadStatements" | "ReadTransactionsBasic" | "ReadTransactionsCredits" | "ReadTransactionsDebits" | "ReadTransactionsDetail" | "ReadCustomerData" | "ReadSBPData" | "EditSBPData" | "ReadSBPData1C" | "EditSBPData1C" | "CreatePaymentForSign" | "CreatePaymentOrder" | "ReadAcquiringData" | "MakeAcquiringOperation" | "ManageInvoiceData" | "ManageWebhookData" | "MakeCustomer" | "ManageGuarantee" | "ManageEdoData" | "ReadBiApi";
         /** ContentAct */
         ContentAct: {
             /** Содержимое акта */
@@ -3427,7 +3449,7 @@ export type components = {
             message: string;
             /**
              * URL для помощи в устранении проблемы
-             * @example "http://enter.tochka.com/open-banking/docs"
+             * @example https://developers.tochka.com/
              */
             url: string;
         };
@@ -3486,7 +3508,7 @@ export type components = {
          * ExternalConsentTypeEnum
          * @enum {string}
          */
-        ExternalConsentTypeEnum: "ReadAccountsBasic" | "ReadAccountsDetail" | "ReadBalances" | "ReadStatements" | "ReadTransactionsBasic" | "ReadTransactionsCredits" | "ReadTransactionsDebits" | "ReadTransactionsDetail" | "ReadCustomerData" | "ReadSBPData" | "EditSBPData" | "CreatePaymentForSign" | "CreatePaymentOrder" | "ReadAcquiringData" | "MakeAcquiringOperation" | "ManageInvoiceData" | "ManageWebhookData" | "MakeCustomer" | "ManageGuarantee";
+        ExternalConsentTypeEnum: "ReadAccountsBasic" | "ReadAccountsDetail" | "ReadBalances" | "ReadStatements" | "ReadTransactionsBasic" | "ReadTransactionsCredits" | "ReadTransactionsDebits" | "ReadTransactionsDetail" | "ReadCustomerData" | "ReadSBPData" | "EditSBPData" | "CreatePaymentForSign" | "CreatePaymentOrder" | "ReadAcquiringData" | "MakeAcquiringOperation" | "ManageInvoiceData" | "ManageWebhookData" | "MakeCustomer" | "ManageGuarantee" | "ManageEdoData" | "ReadBiApi";
         /**
          * ExternalCreditDebitIndicatorEnum
          * @enum {string}
@@ -3681,7 +3703,7 @@ export type components = {
             message: string;
             /**
              * URL для помощи в устранении проблемы
-             * @example "http://enter.tochka.com/open-banking/docs"
+             * @example https://developers.tochka.com/
              */
             url: string;
         };
@@ -5410,7 +5432,7 @@ export type components = {
             message: string;
             /**
              * URL для помощи в устранении проблемы
-             * @example "http://enter.tochka.com/open-banking/docs"
+             * @example https://developers.tochka.com/
              */
             url: string;
         };
@@ -5730,7 +5752,7 @@ export type components = {
             message: string;
             /**
              * URL для помощи в устранении проблемы
-             * @example "http://enter.tochka.com/open-banking/docs"
+             * @example https://developers.tochka.com/
              */
             url: string;
         };
@@ -5809,7 +5831,7 @@ export type components = {
          * WebhookTypeEnum
          * @enum {string}
          */
-        WebhookTypeEnum: "incomingPayment" | "outgoingPayment" | "incomingSbpPayment" | "acquiringInternetPayment" | "incomingSbpB2BPayment";
+        WebhookTypeEnum: "incomingPayment" | "outgoingPayment" | "incomingSbpPayment" | "acquiringInternetPayment" | "incomingSbpB2BPayment" | "customWebhook";
     };
     responses: never;
     parameters: never;
@@ -5909,6 +5931,7 @@ export type SchemaChangeCashboxQrCodeAccountResponseDataModel = components['sche
 export type SchemaChangeCashboxQrCodeAccountResponseModel = components['schemas']['ChangeCashboxQRCodeAccountResponseModel'];
 export type SchemaClosingDocumentCreateRequestDataModel = components['schemas']['ClosingDocumentCreateRequestDataModel'];
 export type SchemaClosingDocumentCreateRequestModel = components['schemas']['ClosingDocumentCreateRequestModel'];
+export type SchemaCofTokenModel = components['schemas']['CofTokenModel'];
 export type SchemaCommonErrorsModelsSomethingGoingWrongResponse_1 = components['schemas']['common__errors_models__Something_going_wrongResponse__1'];
 export type SchemaCommonErrorsModelsSomethingGoingWrongResponse_2 = components['schemas']['common__errors_models__Something_going_wrongResponse__2'];
 export type SchemaConsentCreateRequest = components['schemas']['ConsentCreateRequest'];

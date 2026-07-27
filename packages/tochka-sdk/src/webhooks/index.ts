@@ -9,21 +9,21 @@
  */
 
 import {
-	type VerifyWebhookOptions,
-	WebhookVerificationError,
 	resolveKeyResolver,
+	type VerifyWebhookOptions,
 	verifyWebhookJwt,
+	WebhookVerificationError,
 } from "./verify-core.js";
 
+export type { KeyResolver, WebhookKeySource, WebhookVerificationKey } from "./jwks.js";
 export {
-	TOCHKA_WEBHOOK_JWKS_URL,
 	createWebhookKeyResolver,
 	getDefaultWebhookKeyResolver,
+	TOCHKA_WEBHOOK_JWKS_URL,
 } from "./jwks.js";
-export type { KeyResolver, WebhookKeySource } from "./jwks.js";
 export {
-	WebhookVerificationError,
 	type VerifyWebhookOptions,
+	WebhookVerificationError,
 	type WebhookVerificationReason,
 } from "./verify-core.js";
 
@@ -33,7 +33,8 @@ export type WebhookType =
 	| "outgoingPayment"
 	| "incomingSbpPayment"
 	| "incomingSbpB2BPayment"
-	| "acquiringInternetPayment";
+	| "acquiringInternetPayment"
+	| "customWebhook";
 
 const KNOWN_WEBHOOK_TYPES: ReadonlySet<WebhookType> = new Set<WebhookType>([
 	"incomingPayment",
@@ -41,6 +42,7 @@ const KNOWN_WEBHOOK_TYPES: ReadonlySet<WebhookType> = new Set<WebhookType>([
 	"incomingSbpPayment",
 	"incomingSbpB2BPayment",
 	"acquiringInternetPayment",
+	"customWebhook",
 ]);
 
 interface PaymentSide {
@@ -106,6 +108,21 @@ export interface AcquiringInternetPaymentWebhook {
 	transactionId?: string;
 	qrcId?: string;
 	payerName?: string;
+	/** Маскированный номер карты для оплат подписки без графика. */
+	maskedPan?: string;
+	/** Платёжная система карты. */
+	cardType?: string;
+	/** Токен карты покупателя. */
+	tokenCardId?: string;
+}
+
+/**
+ * Пользовательский webhook. OpenAPI фиксирует только дискриминатор; набор
+ * остальных полей определяется настройкой webhook на стороне Точки.
+ */
+export interface CustomWebhook {
+	webhookType: "customWebhook";
+	[key: string]: unknown;
 }
 
 /** Дискриминированный union всех событий. */
@@ -114,7 +131,8 @@ export type TochkaWebhookEvent =
 	| OutgoingPaymentWebhook
 	| IncomingSbpPaymentWebhook
 	| IncomingSbpB2BPaymentWebhook
-	| AcquiringInternetPaymentWebhook;
+	| AcquiringInternetPaymentWebhook
+	| CustomWebhook;
 
 /**
  * Распарсить и проверить подпись тела вебхука.
@@ -138,7 +156,111 @@ function assertWebhookShape(payload: Record<string, unknown>): TochkaWebhookEven
 			"payload_shape",
 		);
 	}
+	if (type === "customWebhook") return payload as CustomWebhook;
+
+	switch (type) {
+		case "incomingPayment":
+		case "outgoingPayment":
+			assertPaymentSide(payload.SidePayer, "SidePayer");
+			assertPaymentSide(payload.SideRecipient, "SideRecipient");
+			assertRequiredStrings(payload, [
+				"purpose",
+				"documentNumber",
+				"paymentId",
+				"date",
+				"customerCode",
+			]);
+			break;
+		case "incomingSbpPayment":
+			assertRequiredStrings(payload, [
+				"operationId",
+				"qrcId",
+				"amount",
+				"payerMobileNumber",
+				"payerName",
+				"brandName",
+				"merchantId",
+				"purpose",
+				"customerCode",
+			]);
+			assertOptionalString(payload, "refTransactionId");
+			break;
+		case "incomingSbpB2BPayment":
+			assertRequiredStrings(payload, ["qrcId", "amount", "purpose", "customerCode"]);
+			break;
+		case "acquiringInternetPayment":
+			assertRequiredStrings(payload, [
+				"customerCode",
+				"amount",
+				"operationId",
+				"purpose",
+				"merchantId",
+			]);
+			assertEnum(payload, "status", ["AUTHORIZED", "APPROVED"]);
+			assertEnum(payload, "paymentType", ["card", "sbp", "dolyame"]);
+			for (const field of [
+				"paymentLinkId",
+				"consumerId",
+				"transactionId",
+				"qrcId",
+				"payerName",
+				"maskedPan",
+				"cardType",
+				"tokenCardId",
+			]) {
+				assertOptionalString(payload, field);
+			}
+			break;
+	}
 	return payload as unknown as TochkaWebhookEvent;
+}
+
+function assertRecord(value: unknown, path: string): asserts value is Record<string, unknown> {
+	if (!value || typeof value !== "object" || Array.isArray(value)) {
+		throw new WebhookVerificationError(`Expected ${path} to be an object`, "payload_shape");
+	}
+}
+
+function assertRequiredStrings(payload: Record<string, unknown>, fields: readonly string[]): void {
+	for (const field of fields) {
+		if (typeof payload[field] !== "string") {
+			throw new WebhookVerificationError(`Expected ${field} to be a string`, "payload_shape");
+		}
+	}
+}
+
+function assertOptionalString(payload: Record<string, unknown>, field: string): void {
+	if (payload[field] !== undefined && typeof payload[field] !== "string") {
+		throw new WebhookVerificationError(`Expected ${field} to be a string`, "payload_shape");
+	}
+}
+
+function assertEnum(
+	payload: Record<string, unknown>,
+	field: string,
+	values: readonly string[],
+): void {
+	if (typeof payload[field] !== "string" || !values.includes(payload[field])) {
+		throw new WebhookVerificationError(
+			`Expected ${field} to be one of: ${values.join(", ")}`,
+			"payload_shape",
+		);
+	}
+}
+
+function assertPaymentSide(value: unknown, path: string): void {
+	assertRecord(value, path);
+	assertRequiredStrings(value, [
+		"bankCode",
+		"bankName",
+		"bankCorrespondentAccount",
+		"account",
+		"name",
+		"amount",
+		"currency",
+		"inn",
+	]);
+	assertOptionalString(value, "kpp");
 }
 
 /**

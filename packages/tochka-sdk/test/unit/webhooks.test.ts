@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { SignJWT, exportJWK, generateKeyPair } from "jose";
-import { WebhookVerificationError, verifyWebhook } from "../../src/webhooks/index.js";
+import { exportJWK, generateKeyPair, SignJWT } from "jose";
+import { verifyWebhook, WebhookVerificationError } from "../../src/webhooks/index.js";
 
 async function makeKeypair() {
 	const { publicKey, privateKey } = await generateKeyPair("RS256", { modulusLength: 2048 });
@@ -131,18 +131,61 @@ describe("verifyWebhook", () => {
 		expect(event.webhookType).toBe("incomingSbpB2BPayment");
 	});
 
+	test("customWebhook сохраняет подписанный пользовательский payload", async () => {
+		const { privateKey, publicKey } = await makeKeypair();
+		const jwt = await sign(privateKey, {
+			webhookType: "customWebhook",
+			orderId: "order-1",
+			data: { status: "ready" },
+		});
+		const event = await verifyWebhook(jwt, { keySource: { key: publicKey } });
+		expect(event.webhookType).toBe("customWebhook");
+		expect(event.orderId).toBe("order-1");
+	});
+
+	test("известный webhook проверяется по полному контракту payload", async () => {
+		const { privateKey, publicKey } = await makeKeypair();
+		const jwt = await sign(privateKey, {
+			webhookType: "incomingSbpPayment",
+			operationId: "op-1",
+		});
+		try {
+			await verifyWebhook(jwt, { keySource: { key: publicKey } });
+			expect.unreachable();
+		} catch (err) {
+			expect((err as WebhookVerificationError).reason).toBe("payload_shape");
+		}
+	});
+
+	test("nbf в будущем → reason=not_yet_valid", async () => {
+		const { privateKey, publicKey } = await makeKeypair();
+		const jwt = await new SignJWT({ webhookType: "customWebhook" })
+			.setProtectedHeader({ alg: "RS256" })
+			.setNotBefore(Math.floor(Date.now() / 1000) + 60)
+			.sign(privateKey);
+		try {
+			await verifyWebhook(jwt, { keySource: { key: publicKey } });
+			expect.unreachable();
+		} catch (err) {
+			expect((err as WebhookVerificationError).reason).toBe("not_yet_valid");
+		}
+	});
+
 	test("issuer validation через jwtOptions", async () => {
 		const { privateKey, publicKey } = await makeKeypair();
 		const jwt = await new SignJWT({ webhookType: "incomingPayment" })
 			.setProtectedHeader({ alg: "RS256" })
 			.setIssuer("https://wrong.issuer")
 			.sign(privateKey);
-		await expect(
-			verifyWebhook(jwt, {
+		try {
+			await verifyWebhook(jwt, {
 				keySource: { key: publicKey },
 				jwtOptions: { issuer: "https://enter.tochka.com" },
-			}),
-		).rejects.toBeInstanceOf(WebhookVerificationError);
+			});
+			expect.unreachable();
+		} catch (err) {
+			expect((err as WebhookVerificationError).reason).toBe("claims");
+		}
 	});
 
 	test("user не может weakening algorithm через jwtOptions", async () => {

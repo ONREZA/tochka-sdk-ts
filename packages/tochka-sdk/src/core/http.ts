@@ -1,12 +1,19 @@
 import createClient, { type ClientOptions, type Middleware } from "openapi-fetch";
 import type { paths } from "../_generated/schema.js";
 import type { AuthProvider } from "../auth/types.js";
-import { TochkaError, type TochkaErrorPayload, TochkaNetworkError } from "../errors/index.js";
 import {
-	type RetryOptions,
+	TochkaError,
+	type TochkaErrorPayload,
+	TochkaNetworkError,
+	TochkaUnknownOutcomeError,
+} from "../errors/index.js";
+import {
 	computeBackoffMs,
 	isAbortError,
+	isReadOnlyMethod,
+	isRetryableMethod,
 	parseRetryAfter,
+	type RetryOptions,
 	sleep,
 	validateRetryOptions,
 } from "./retry.js";
@@ -32,7 +39,14 @@ export interface TochkaFetchInit {
 		| undefined;
 }
 
-const timers = new WeakMap<Request, ReturnType<typeof setTimeout>>();
+interface TimeoutState {
+	timer: ReturnType<typeof setTimeout>;
+	timedOut: boolean;
+	existing: AbortSignal;
+	forwardAbort: () => void;
+}
+
+const timeoutStates = new WeakMap<Request, TimeoutState>();
 const startTimes = new WeakMap<Request, number>();
 
 export function buildFetchClient(init: TochkaFetchInit): TochkaFetchClient {
@@ -51,11 +65,11 @@ export function buildFetchClient(init: TochkaFetchInit): TochkaFetchClient {
 
 	const client = createClient<paths>(options);
 	client.use(authMiddleware(init.auth));
-	const timeout = timeoutMiddleware(init.timeoutMs);
-	if (timeout) client.use(timeout);
 	client.use(errorMiddleware());
 	const telemetry = telemetryMiddleware(init);
 	if (telemetry) client.use(telemetry);
+	const timeout = timeoutMiddleware(init.timeoutMs);
+	if (timeout) client.use(timeout);
 	return client;
 }
 
@@ -75,31 +89,44 @@ function timeoutMiddleware(timeoutMs: number | undefined): Middleware | null {
 		async onRequest({ request }) {
 			const ac = new AbortController();
 			const existing = request.signal;
-			const timer = setTimeout(
-				() => ac.abort(new Error(`Request timed out after ${timeoutMs}ms`)),
-				timeoutMs,
-			);
-			existing?.addEventListener("abort", () => ac.abort(existing.reason), { once: true });
+			const forwardAbort = () => ac.abort(existing.reason);
+			let state: TimeoutState;
+			const timer = setTimeout(() => {
+				state.timedOut = true;
+				ac.abort(new Error(`Request timed out after ${timeoutMs}ms`));
+			}, timeoutMs);
+			state = { timer, timedOut: false, existing, forwardAbort };
+			existing.addEventListener("abort", forwardAbort, { once: true });
 			const newReq = new Request(request, { signal: ac.signal });
-			timers.set(newReq, timer);
+			timeoutStates.set(newReq, state);
 			return newReq;
 		},
 		async onResponse({ request, response }) {
-			const timer = timers.get(request);
-			if (timer) {
-				clearTimeout(timer);
-				timers.delete(request);
-			}
+			clearRequestTimeout(request);
 			return response;
 		},
-		async onError({ request }) {
-			const timer = timers.get(request);
-			if (timer) {
-				clearTimeout(timer);
-				timers.delete(request);
-			}
+		async onError({ request, error }) {
+			const state = timeoutStates.get(request);
+			clearRequestTimeout(request);
+			if (!state?.timedOut) return;
+			const message = `Request timed out after ${timeoutMs}ms`;
+			const details = { url: request.url, method: request.method, cause: error };
+			return isReadOnlyMethod(request.method)
+				? new TochkaNetworkError(message, details)
+				: new TochkaUnknownOutcomeError(
+						`${message}. The operation outcome is unknown; do not retry without idempotency.`,
+						details,
+					);
 		},
 	};
+}
+
+function clearRequestTimeout(request: Request): void {
+	const state = timeoutStates.get(request);
+	if (!state) return;
+	clearTimeout(state.timer);
+	state.existing.removeEventListener("abort", state.forwardAbort);
+	timeoutStates.delete(request);
 }
 
 function errorMiddleware(): Middleware {
@@ -172,29 +199,44 @@ export function makeRetryingFetch(
 		input: RequestInfo | URL,
 		init?: RequestInit,
 	): Promise<Response> {
-		const signal: AbortSignal | undefined = init?.signal ?? undefined;
+		const requestTemplate = typeof Request !== "undefined" ? new Request(input, init) : null;
+		const method = (requestTemplate?.method ?? init?.method ?? "GET").toUpperCase();
+		const signal: AbortSignal | undefined = requestTemplate?.signal ?? init?.signal ?? undefined;
+		if (signal?.aborted) {
+			throw signal.reason ?? new DOMException("Aborted", "AbortError");
+		}
+		const mayRetry = isRetryableMethod(method, opts);
+		const maxAttempts = mayRetry ? opts.maxAttempts : 1;
+		const url =
+			requestTemplate?.url ??
+			(typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url);
 		let attempt = 0;
-		while (attempt < opts.maxAttempts) {
+		while (attempt < maxAttempts) {
 			attempt += 1;
+			let response: Response;
 			try {
-				const res = await baseFetch(input, init);
-				if (!opts.retryableStatuses.has(res.status) || attempt >= opts.maxAttempts) return res;
-				const retryAfter = parseRetryAfter(res.headers.get("retry-after"), opts.maxDelayMs);
-				const delay = retryAfter ?? computeBackoffMs(attempt, opts);
-				await sleep(delay, signal);
+				const attemptInput = requestTemplate?.clone() ?? input;
+				response = await baseFetch(attemptInput, requestTemplate ? undefined : init);
 			} catch (err) {
-				if (isAbortError(err)) throw err;
-				if (!opts.retryOnNetworkError || attempt >= opts.maxAttempts) {
-					const url =
-						typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-					const method = init?.method ?? "GET";
-					throw new TochkaNetworkError(
-						`Network error after ${attempt} attempt(s): ${(err as Error).message}`,
-						{ url, method, cause: err },
-					);
+				const aborted = isAbortError(err) || signal?.aborted;
+				if (aborted || !opts.retryOnNetworkError || attempt >= maxAttempts) {
+					const message = `Network error after ${attempt} attempt(s): ${(err as Error).message}`;
+					const details = { url, method, cause: err };
+					if (aborted && isReadOnlyMethod(method)) throw signal?.reason ?? err;
+					throw isReadOnlyMethod(method)
+						? new TochkaNetworkError(message, details)
+						: new TochkaUnknownOutcomeError(
+								`${message}. The operation outcome is unknown; do not retry without idempotency.`,
+								details,
+							);
 				}
 				await sleep(computeBackoffMs(attempt, opts), signal);
+				continue;
 			}
+			if (!opts.retryableStatuses.has(response.status) || attempt >= maxAttempts) return response;
+			const retryAfter = parseRetryAfter(response.headers.get("retry-after"), opts.maxDelayMs);
+			await response.body?.cancel().catch(() => undefined);
+			await sleep(retryAfter ?? computeBackoffMs(attempt, opts), signal);
 		}
 		throw new Error("makeRetryingFetch: unreachable — validateRetryOptions should prevent this");
 	};

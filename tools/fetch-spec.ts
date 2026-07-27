@@ -1,66 +1,30 @@
 #!/usr/bin/env bun
-import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { copyFile, readFile, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { copyFile, rm, writeFile } from "node:fs/promises";
+import { fetchOpenApi, openApiFingerprint, readOpenApi, serializeOpenApi } from "./openapi.js";
+import { SPEC_TARGETS, type SpecTarget } from "./specs.js";
 
-const SPEC_URL = process.env.TOCHKA_SPEC_URL ?? "https://enter.tochka.com/doc/openapi/swagger.json";
-const SPEC_PATH = resolve(import.meta.dir, "..", "specs", "openapi.json");
-const PREV_PATH = resolve(import.meta.dir, "..", "specs", "openapi.prev.json");
+async function fetchTarget(target: SpecTarget): Promise<void> {
+	console.log(`→ Fetching ${target.label}: ${target.url}`);
+	const parsed = await fetchOpenApi(target.url);
+	const current = existsSync(target.path) ? await readOpenApi(target.path) : null;
+	if (current && openApiFingerprint(current) === openApiFingerprint(parsed)) {
+		console.log(`✓ ${target.label}: no semantic changes`);
+		return;
+	}
 
-async function sha256(path: string): Promise<string | null> {
-	if (!existsSync(path)) return null;
-	const data = await readFile(path);
-	return createHash("sha256").update(data).digest("hex");
+	const tmpPath = `${target.path}.new`;
+	await writeFile(tmpPath, serializeOpenApi(parsed));
+	if (existsSync(target.path)) {
+		await copyFile(target.path, target.previousPath);
+		console.log(`✓ Saved previous ${target.label} spec`);
+	}
+
+	await copyFile(tmpPath, target.path);
+	await rm(tmpPath, { force: true });
+
+	console.log(`✓ Updated ${target.label} spec (API version: ${parsed.info.version})`);
 }
 
-async function main() {
-	console.log(`→ Fetching ${SPEC_URL}`);
-	const res = await fetch(SPEC_URL, {
-		headers: { "User-Agent": "onreza/tochka-sdk fetch-spec" },
-	});
-	if (!res.ok) {
-		console.error(`✗ Failed: HTTP ${res.status} ${res.statusText}`);
-		process.exit(1);
-	}
-
-	const remoteText = await res.text();
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(remoteText);
-	} catch (err) {
-		console.error("✗ Remote response is not valid JSON");
-		throw err;
-	}
-
-	const remoteJson = `${JSON.stringify(parsed, null, 2)}\n`;
-	const tmpPath = `${SPEC_PATH}.new`;
-	await writeFile(tmpPath, remoteJson);
-
-	const currentHash = await sha256(SPEC_PATH);
-	const newHash = await sha256(tmpPath);
-
-	if (currentHash === newHash) {
-		console.log("✓ No changes (sha256 match)");
-		await Bun.file(tmpPath)
-			.delete?.()
-			.catch(() => {});
-		process.exit(0);
-	}
-
-	if (existsSync(SPEC_PATH)) {
-		await copyFile(SPEC_PATH, PREV_PATH);
-		console.log("✓ Saved previous spec to specs/openapi.prev.json");
-	}
-
-	await copyFile(tmpPath, SPEC_PATH);
-	await Bun.file(tmpPath)
-		.delete?.()
-		.catch(() => {});
-
-	const version = (parsed as { info?: { version?: string } }).info?.version ?? "unknown";
-	console.log(`✓ Updated specs/openapi.json (API version: ${version})`);
-	console.log("→ Run `bun run gen` to regenerate types");
-}
-
-await main();
+await Promise.all(SPEC_TARGETS.map(fetchTarget));
+console.log("→ Run `bun run gen` to regenerate types");

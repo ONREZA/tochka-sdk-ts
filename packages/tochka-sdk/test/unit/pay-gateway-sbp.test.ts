@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { TochkaUnknownOutcomeError } from "../../src/errors/index.js";
 import { PayGatewayClient } from "../../src/pay-gateway/index.js";
 
 interface Captured {
@@ -28,7 +29,7 @@ function makeClient(captured: Captured, responseBody: unknown = { qrcId: "q1" })
 }
 
 describe("PayGatewaySbpFunctionalLinksModule", () => {
-	test("create → POST .../sbp/qrc, тело плоское (без обёртки Data), без Signature", async () => {
+	test("create → POST .../sbp/qrc, тело в Data, без Signature", async () => {
 		const cap: Captured = {};
 		const pg = makeClient(cap);
 		await pg.sbpFunctionalLinks.create({
@@ -44,10 +45,9 @@ describe("PayGatewaySbpFunctionalLinksModule", () => {
 		expect(cap.method).toBe("POST");
 		expect(cap.url).toBe("https://pay.example/uapi/pay/v1.0/sites/site-1/sbp/qrc");
 		const body = JSON.parse(cap.body ?? "{}");
-		expect(body.Data).toBeUndefined();
-		expect(body.qrcType).toBe("DYNAMIC");
+		expect(body.Data.qrcType).toBe("DYNAMIC");
 		expect(body.siteUid).toBeUndefined();
-		expect(body.paymentToken.tokenizationPurpose).toBe("Подписка");
+		expect(body.Data.paymentToken.tokenizationPurpose).toBe("Подписка");
 		expect(cap.headers?.Signature).toBeUndefined();
 	});
 
@@ -60,9 +60,9 @@ describe("PayGatewaySbpFunctionalLinksModule", () => {
 			paymentToken: { tokenizationPurpose: "Привязка без оплаты" },
 		});
 		const body = JSON.parse(cap.body ?? "{}");
-		expect(body.qrcType).toBe("TOKEN");
-		expect(body.amount).toBeUndefined();
-		expect(body.paymentToken.tokenizationServiceDetails).toBeUndefined();
+		expect(body.Data.qrcType).toBe("TOKEN");
+		expect(body.Data.amount).toBeUndefined();
+		expect(body.Data.paymentToken.tokenizationServiceDetails).toBeUndefined();
 	});
 
 	test("create STATIC без amount — компилируется и шлётся", async () => {
@@ -70,8 +70,8 @@ describe("PayGatewaySbpFunctionalLinksModule", () => {
 		const pg = makeClient(cap);
 		await pg.sbpFunctionalLinks.create({ siteUid: "site-1", qrcType: "STATIC" });
 		const body = JSON.parse(cap.body ?? "{}");
-		expect(body.qrcType).toBe("STATIC");
-		expect(body.amount).toBeUndefined();
+		expect(body.Data.qrcType).toBe("STATIC");
+		expect(body.Data.amount).toBeUndefined();
 	});
 
 	test("extra мержится в тело верхнего уровня", async () => {
@@ -80,20 +80,21 @@ describe("PayGatewaySbpFunctionalLinksModule", () => {
 		await pg.sbpFunctionalLinks.create({
 			siteUid: "site-1",
 			qrcType: "DYNAMIC",
+			amount: { currency: "RUB", amount: "1.00" },
 			extra: { callbackUrl: "https://cb.example" },
 		});
 		const body = JSON.parse(cap.body ?? "{}");
-		expect(body.callbackUrl).toBe("https://cb.example");
-		expect(body.extra).toBeUndefined();
+		expect(body.Data.callbackUrl).toBe("https://cb.example");
+		expect(body.Data.extra).toBeUndefined();
 	});
 
-	test("getTokenizationResult → GET .../sbp/qrc/{qrcId}/tokenization/result, qrcId кодируется", async () => {
+	test("getTokenizationResult → GET .../tokenization/result с qrcIdType", async () => {
 		const cap: Captured = {};
 		const pg = makeClient(cap, { status: "ACCEPTED", token: "TKN" });
-		const res = await pg.sbpFunctionalLinks.getTokenizationResult("site-1", "q/1");
+		const res = await pg.sbpFunctionalLinks.getTokenizationResult("site-1", "q/1", "NSPK");
 		expect(cap.method).toBe("GET");
 		expect(cap.url).toBe(
-			"https://pay.example/uapi/pay/v1.0/sites/site-1/sbp/qrc/q%2F1/tokenization/result",
+			"https://pay.example/uapi/pay/v1.0/sites/site-1/sbp/qrc/q%2F1/tokenization/result?qrcIdType=NSPK",
 		);
 		expect(cap.body).toBeUndefined();
 		expect(res.status).toBe("ACCEPTED");
@@ -103,8 +104,40 @@ describe("PayGatewaySbpFunctionalLinksModule", () => {
 	test("getTokenizationResult REJECTED без token", async () => {
 		const cap: Captured = {};
 		const pg = makeClient(cap, { status: "REJECTED" });
-		const res = await pg.sbpFunctionalLinks.getTokenizationResult("site-1", "q1");
+		const res = await pg.sbpFunctionalLinks.getTokenizationResult("site-1", "q1", "MERCHANT");
 		expect(res.status).toBe("REJECTED");
 		expect(res.token).toBeUndefined();
+	});
+
+	test("POST не повторяется после 503 по умолчанию", async () => {
+		let calls = 0;
+		const pg = new PayGatewayClient({
+			token: "jwt-token",
+			baseUrl: "https://pay.example",
+			fetch: (async () => {
+				calls += 1;
+				return new Response("{}", { status: 503 });
+			}) as typeof fetch,
+		});
+		await expect(
+			pg.sbpFunctionalLinks.create({ siteUid: "site-1", qrcType: "STATIC" }),
+		).rejects.toThrow();
+		expect(calls).toBe(1);
+	});
+
+	test("транспортная ошибка POST возвращает unknown outcome", async () => {
+		let calls = 0;
+		const pg = new PayGatewayClient({
+			token: "jwt-token",
+			baseUrl: "https://pay.example",
+			fetch: (async () => {
+				calls += 1;
+				throw new TypeError("connection reset");
+			}) as typeof fetch,
+		});
+		await expect(
+			pg.sbpFunctionalLinks.create({ siteUid: "site-1", qrcType: "STATIC" }),
+		).rejects.toBeInstanceOf(TochkaUnknownOutcomeError);
+		expect(calls).toBe(1);
 	});
 });

@@ -3,7 +3,7 @@
   "info": {
     "title": "Tochka.API",
     "description": "Подключая API, вы соглашаетесь на условия [оферты](https://tochka.com/links/offer-open-api)\n\n[Скачать](https://enter.tochka.com/doc/openapi/swagger.json) OpenAPI спецификацию\n",
-    "version": "v1.91.2-stable"
+    "version": "v1.93.0-stable"
   },
   "servers": [
     {
@@ -8610,6 +8610,10 @@
             "maxLength": 45,
             "minLength": 1,
             "title": "Уникальный номер заказа"
+          },
+          "CofToken": {
+            "$ref": "#/components/schemas/CofTokenModel",
+            "title": "Информация о карте плательщика"
           }
         },
         "type": "object",
@@ -9253,6 +9257,10 @@
             "maxLength": 45,
             "minLength": 1,
             "title": "Уникальный номер заказа"
+          },
+          "CofToken": {
+            "$ref": "#/components/schemas/CofTokenModel",
+            "title": "Информация о карте плательщика"
           }
         },
         "type": "object",
@@ -10264,6 +10272,33 @@
         ],
         "title": "ClosingDocumentCreateRequestModel"
       },
+      "CofTokenModel": {
+        "properties": {
+          "tokenCardId": {
+            "type": "string",
+            "title": "Токен карты покупателя",
+            "examples": [
+              "208452"
+            ]
+          },
+          "cardType": {
+            "type": "string",
+            "title": "Тип платёжной системы",
+            "examples": [
+              "Mir"
+            ]
+          },
+          "maskedPan": {
+            "type": "string",
+            "title": "Маскированный номер карты",
+            "examples": [
+              "220445******0792"
+            ]
+          }
+        },
+        "type": "object",
+        "title": "CofTokenModel"
+      },
       "ConsentCreateRequest": {
         "properties": {
           "Data": {
@@ -10595,7 +10630,9 @@
           "ManageInvoiceData",
           "ManageWebhookData",
           "MakeCustomer",
-          "ManageGuarantee"
+          "ManageGuarantee",
+          "ManageEdoData",
+          "ReadBiApi"
         ],
         "title": "ConsentTypeEnum"
       },
@@ -11116,7 +11153,7 @@
             "type": "string",
             "title": "URL для помощи в устранении проблемы",
             "examples": [
-              "\"http://enter.tochka.com/open-banking/docs\""
+              "https://developers.tochka.com/"
             ]
           }
         },
@@ -11245,7 +11282,9 @@
           "ManageInvoiceData",
           "ManageWebhookData",
           "MakeCustomer",
-          "ManageGuarantee"
+          "ManageGuarantee",
+          "ManageEdoData",
+          "ReadBiApi"
         ],
         "title": "ExternalConsentTypeEnum"
       },
@@ -11649,7 +11688,7 @@
             "type": "string",
             "title": "URL для помощи в устранении проблемы",
             "examples": [
-              "\"http://enter.tochka.com/open-banking/docs\""
+              "https://developers.tochka.com/"
             ]
           }
         },
@@ -14847,7 +14886,7 @@
             "type": "string",
             "title": "URL для помощи в устранении проблемы",
             "examples": [
-              "\"http://enter.tochka.com/open-banking/docs\""
+              "https://developers.tochka.com/"
             ]
           }
         },
@@ -15485,7 +15524,7 @@
             "type": "string",
             "title": "URL для помощи в устранении проблемы",
             "examples": [
-              "\"http://enter.tochka.com/open-banking/docs\""
+              "https://developers.tochka.com/"
             ]
           }
         },
@@ -15672,7 +15711,8 @@
           "outgoingPayment",
           "incomingSbpPayment",
           "acquiringInternetPayment",
-          "incomingSbpB2BPayment"
+          "incomingSbpB2BPayment",
+          "customWebhook"
         ],
         "title": "WebhookTypeEnum"
       },
