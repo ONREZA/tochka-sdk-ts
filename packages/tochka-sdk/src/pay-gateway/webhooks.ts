@@ -90,6 +90,8 @@ const PAYMENT_METHOD_TYPES = [
 	"SBP_TOKEN",
 	"SAVED_CARD",
 	"SBP_CASH_REGISTER_QRC",
+	"DIGITAL_RUBLE",
+	"DIGITAL_RUBLE_CASH_REGISTER_QRC",
 ] as const;
 
 /** Проверить подпись и распарсить webhook Pay Gateway. */
@@ -181,10 +183,15 @@ function assertPaymentMethod(value: unknown): void {
 			assertMoney(value.capturedAmount, "paymentMethod.capturedAmount");
 			break;
 		case "SBP_CASH_REGISTER_QRC":
+		case "DIGITAL_RUBLE_CASH_REGISTER_QRC":
 			assertStrings(value, ["qrcId", "activationUid"]);
 			break;
 		default:
 			assertString(value, "qrcId");
+	}
+	if (value.type === "DIGITAL_RUBLE" || value.type === "DIGITAL_RUBLE_CASH_REGISTER_QRC") {
+		assertOptionalString(value, "operationId");
+		assertOptionalString(value, "merchantQrcId");
 	}
 }
 
@@ -195,6 +202,10 @@ function assertStatus(value: unknown): void {
 	if (value.value === "DECLINED") {
 		assertStrings(value, ["reasonCode", "reasonMessage", "reasonSource"]);
 		assertOptionalString(value, "psErrorCode");
+		if (value.recommendation !== undefined) {
+			assertRecord(value.recommendation, "status.recommendation");
+			assertEnum(value.recommendation, "type", ["RETRY_WITH_ANOTHER_METHOD"]);
+		}
 	}
 }
 

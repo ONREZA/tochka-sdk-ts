@@ -2,7 +2,7 @@
 	"name": "tochka-sdk-ts",
 	"private": true,
 	"type": "module",
-	"packageManager": "bun@1.3.14",
+	"packageManager": "bun@1.4.2",
 	"workspaces": [
 		"packages/*"
 	],
@@ -26,18 +26,13 @@
 		"prepare": "lefthook install || echo 'Install lefthook: https://github.com/evilmartians/lefthook'"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.5.5",
-		"@types/bun": "1.3.14",
-		"lefthook": "2.1.10",
+		"@biomejs/biome": "2.5.15",
+		"@types/bun": "1.4.2",
+		"lefthook": "2.1.17",
 		"openapi-typescript": "7.13.0",
 		"typescript": "6.0.3"
 	},
 	"engines": {
 		"node": ">=24"
-	},
-	"overrides": {
-		"brace-expansion": "5.0.8",
-		"js-yaml": "4.3.0",
-		"tar": "7.5.22"
 	}
 }

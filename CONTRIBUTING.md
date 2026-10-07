@@ -4,10 +4,14 @@
 
 ## Требования
 
-- [Bun](https://bun.sh) 1.3.14 — рантайм и test-раннер
+- [Bun](https://bun.sh) 1.4.2 — рантайм и test-раннер
 - Node 24+ — инструменты разработки, сборка и поддерживаемый рантайм SDK
 - [cocogitto](https://github.com/cocogitto/cocogitto) для локальной валидации коммитов (опционально, но рекомендуется): `cargo install cocogitto`
 - `lefthook` ставится автоматически через `bun install`
+
+Генератор использует TypeScript 6.0.3 в корне: `openapi-typescript` требует
+прежний compiler API, отсутствующий в TypeScript 7. Проверка и сборка SDK
+используют TypeScript 7.0.2 из workspace пакета.
 
 ## Старт
 
@@ -97,6 +101,16 @@ GitHub отключает scheduled workflow публичного репозит
 ссылкой на неуспешную проверку. Сам workflow сохраняет статус failure; перед merge
 доработайте SDK и добейтесь успешного `bun run verify`. Запуски с других веток
 проверяют sync, но не обновляют bot PR.
+
+Защита `main` требует PR, актуальную базовую ветку и успешные проверки `verify`,
+`Deno`, `Lint Commit Messages`. Force-push и удаление `main` запрещены; обходов
+для администраторов и ботов нет. Для слияния используется squash.
+CI проверяет заголовок PR как Conventional Commit и повторяется при его
+редактировании: этот заголовок становится заголовком squash-коммита.
+
+Spec-бот и release-please используют организационный `RELEASE_PLEASE_TOKEN`:
+он позволяет автоматически запускать CI созданных ими PR. PR, созданные через
+`GITHUB_TOKEN`, требуют ручного разрешения запуска workflow.
 
 ## Поддержка
 

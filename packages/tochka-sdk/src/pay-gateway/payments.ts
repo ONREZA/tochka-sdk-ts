@@ -25,6 +25,8 @@ export type CapturePaymentList = CapturePaymentResponse[];
 export type RefundRequest = Schemas["RefundRequestDTO"];
 export type RefundResponse = Schemas["RefundResponseDTO"];
 export type RefundList = RefundResponse[];
+export type RefundRetryRequest = Schemas["RefundRetryRequestDTO"];
+export type RefundRetryFormResponse = Schemas["RefundRetryFormResponseDTO"];
 
 export type CreatePaymentRequest = Schemas["CreatePaymentRequestDTO"] & {
 	/** Идентификатор сайта мерчанта; уходит в path, не в тело. */
@@ -143,6 +145,53 @@ export class PayGatewayPaymentsModule {
 			sitePath(
 				siteUid,
 				`/payments/${encodeURIComponent(paymentUid)}/refunds/${encodeURIComponent(refundUid)}`,
+			),
+		);
+	}
+
+	/** Retry a declined refund using new recipient details. Requires Signature. */
+	retryRefund(
+		siteUid: string,
+		paymentUid: string,
+		refundUid: string,
+		body: RefundRetryRequest,
+	): Promise<RefundResponse> {
+		return this.client.request(
+			"POST",
+			sitePath(
+				siteUid,
+				`/payments/${encodeURIComponent(paymentUid)}/refunds/${encodeURIComponent(refundUid)}/retry`,
+			),
+			{ Data: body },
+		);
+	}
+
+	/** Issue a form URL for the payer to provide new refund details. */
+	createRefundRetryForm(
+		siteUid: string,
+		paymentUid: string,
+		refundUid: string,
+	): Promise<RefundRetryFormResponse> {
+		return this.client.request(
+			"PUT",
+			sitePath(
+				siteUid,
+				`/payments/${encodeURIComponent(paymentUid)}/refunds/${encodeURIComponent(refundUid)}/retry-form`,
+			),
+		);
+	}
+
+	/** Revoke a previously issued refund form URL. */
+	async deleteRefundRetryForm(
+		siteUid: string,
+		paymentUid: string,
+		refundUid: string,
+	): Promise<void> {
+		await this.client.request(
+			"DELETE",
+			sitePath(
+				siteUid,
+				`/payments/${encodeURIComponent(paymentUid)}/refunds/${encodeURIComponent(refundUid)}/retry-form`,
 			),
 		);
 	}

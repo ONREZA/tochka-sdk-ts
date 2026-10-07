@@ -818,10 +818,9 @@ export type components = {
              *      по истечению срока с помощью менеджеров сопровождения.
              *      Срок автоматического действия может быть скорректирован в меньшую сторону
              *      менеджером сопровождения, увеличение срока автоматического действия требует дополнительного согласования.
-             * @default MANUAL
              * @enum {string}
              */
-            captureMode: "AUTO" | "MANUAL";
+            captureMode?: "AUTO" | "MANUAL";
             /**
              * @description CVV2/CVC2 на банковской карте
              * @example 123
@@ -991,13 +990,8 @@ export type components = {
              * @example {"key1":"value1","key2":"value2"}
              */
             metadata?: string;
-            /**
-             * @description Платёжные методы, которыми можно оплатить код. Метод оплаты доступен плательщику только если указан в paymentMethods.
-             * @default [
-             *       "SBP"
-             *     ]
-             */
-            paymentMethods: ("SBP" | "DIGITAL_RUBLE")[];
+            /** @description Платёжные методы, которыми можно оплатить код. Метод оплаты доступен плательщику только если указан в paymentMethods. */
+            paymentMethods?: ("SBP" | "DIGITAL_RUBLE")[];
             /**
              * @description Ссылка для перенаправления Покупателя на Платёжную страницу Участника Сервиса УПК
              * @example https://example.ru
@@ -1581,13 +1575,8 @@ export type components = {
             customer?: components["schemas"]["CustomerDTO"];
             merchantQrcId?: string;
             metadata?: string;
-            /**
-             * @description Платёжные методы, которыми можно оплатить код. Метод оплаты доступен плательщику только если указан в paymentMethods.
-             * @default [
-             *       "SBP"
-             *     ]
-             */
-            paymentMethods: ("SBP" | "DIGITAL_RUBLE")[];
+            /** @description Платёжные методы, которыми можно оплатить код. Метод оплаты доступен плательщику только если указан в paymentMethods. */
+            paymentMethods?: ("SBP" | "DIGITAL_RUBLE")[];
             /**
              * @description Ссылка для перенаправления Покупателя на Платёжную страницу Участника Сервиса УПК
              * @example https://example.ru
@@ -1616,9 +1605,8 @@ export type components = {
             /**
              * Format: int32
              * @description Высота изображения QR-кода
-             * @default 300
              */
-            height: number;
+            height?: number;
             /**
              * @description Формат изображения QR-кода
              * @enum {string}
@@ -1627,9 +1615,8 @@ export type components = {
             /**
              * Format: int32
              * @description Ширина изображения QR-кода
-             * @default 300
              */
-            width: number;
+            width?: number;
         };
         /** @description Опциональные данные сгенерированного изображения QR-кода */
         QRCodeImageResponseDTO: {
@@ -1679,13 +1666,8 @@ export type components = {
             callbackUrl?: string;
             merchantQrcId?: string;
             metadata?: string;
-            /**
-             * @description Платёжные методы, которыми можно оплатить код. Метод оплаты доступен плательщику только если указан в paymentMethods.
-             * @default [
-             *       "SBP"
-             *     ]
-             */
-            paymentMethods: ("SBP" | "DIGITAL_RUBLE")[];
+            /** @description Платёжные методы, которыми можно оплатить код. Метод оплаты доступен плательщику только если указан в paymentMethods. */
+            paymentMethods?: ("SBP" | "DIGITAL_RUBLE")[];
             /**
              * @description Ссылка для перенаправления Покупателя на Платёжную страницу Участника Сервиса УПК
              * @example https://example.ru

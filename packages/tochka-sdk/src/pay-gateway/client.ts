@@ -26,7 +26,7 @@ export interface PayGatewayClientOptions {
 	baseUrl: string;
 	/**
 	 * Приватный ключ для RSA-SHA256 подписи тела запросов. Формат — PKCS#8 PEM
-	 * (или готовый `CryptoKey`). Обязателен для методов `create/capture/refund`.
+	 * (или готовый `CryptoKey`). Обязателен для `create/capture/refund/retryRefund`.
 	 */
 	privateKey?: PrivateKeyInput;
 	/** Дополнительные заголовки. */
@@ -44,7 +44,8 @@ export interface PayGatewayClientOptions {
 	 * HTTP-методы + пути (regexp или строка), для которых SDK обязан подписать тело.
 	 * По умолчанию — создание платежа (`POST .../payments`), подтверждение
 	 * (`POST .../payments/{id}/captures`) и возврат
-	 * (`POST .../payments/{id}/refunds`).
+	 * (`POST .../payments/{id}/refunds`) и повтор возврата
+	 * (`POST .../payments/{id}/refunds/{refundId}/retry`).
 	 */
 	signedPaths?: readonly (string | RegExp)[];
 }
@@ -53,6 +54,7 @@ export const DEFAULT_SIGNED_PATHS: readonly (string | RegExp)[] = Object.freeze(
 	/\/payments(?:\?|$)/,
 	/\/captures(?:\?|$)/,
 	/\/refunds(?:\?|$)/,
+	/\/refunds\/[^/?]+\/retry(?:\?|$)/,
 ]);
 
 export class PayGatewayClient {
