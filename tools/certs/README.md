@@ -15,6 +15,12 @@ SHA-256 fingerprint DER-сертификата:
 Subject и issuer: `C=RU, O=The Ministry of Digital Development and Communications,
 CN=Russian Trusted Root CA`. Срок действия: 2022-03-01 — 2032-02-27.
 
+На GitHub-hosted Ubuntu runner 2026-10-07 проверены оба endpoint с SNI,
+`-verify_hostname` и `-verify_return_error`: `*.tochka.com` (2026-06-18 —
+2027-06-18) → Russian Trusted Sub CA (2024-07-15 — 2029-07-19) → этот root CA.
+Обе проверки вернули `Verify return code: 0 (ok)`:
+https://github.com/ONREZA/tochka-sdk-ts/actions/runs/37584007150
+
 CA хранится в git для review и воспроизводимости; workflow не скачивает новый
 trust anchor на каждом запуске. Доверяем корневому CA, а не leaf-сертификату
 endpoint или сертификату, извлечённому из непроверенной серверной цепочки.

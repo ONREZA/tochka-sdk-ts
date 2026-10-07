@@ -93,6 +93,11 @@ GitHub отключает scheduled workflow публичного репозит
 активности. В Actions → Sync OpenAPI включите workflow через **Enable workflow**,
 затем **Run workflow**. Это отдельная настройка GitHub, исправление CA её не заменяет.
 
+Если обновлённая спецификация требует изменений SDK, sync создаёт draft PR со
+ссылкой на неуспешную проверку. Сам workflow сохраняет статус failure; перед merge
+доработайте SDK и добейтесь успешного `bun run verify`. Запуски с других веток
+проверяют sync, но не обновляют bot PR.
+
 ## Поддержка
 
 Issues и PR — на GitHub.
