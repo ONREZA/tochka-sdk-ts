@@ -1,10 +1,9 @@
 #!/usr/bin/env bun
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 const PACKAGE_ROOT = resolve(import.meta.dir, "..", "packages", "tochka-sdk");
-const tempRoot = await mkdtemp(join(tmpdir(), "tochka-sdk-package-"));
+const tempRoot = await mkdtemp("/var/tmp/tochka-sdk-package-");
 
 try {
 	const proc = Bun.spawn(["npm", "pack", "--silent", "--json", "--pack-destination", tempRoot], {
@@ -102,8 +101,68 @@ try {
 	});
 	if ((await smokeProcess.exited) !== 0) throw new Error("Packed import smoke test failed");
 
+	const consumerSource = `
+import { TochkaClient, type PaymentForSign, type SbpCustomerInfo } from "@onreza/tochka-sdk";
+import { verifyWebhook, type TochkaWebhookEvent } from "@onreza/tochka-sdk/webhooks";
+import { PayGatewayClient, type PayGatewayOperation, type CreateSbpFunctionalLinkRequest } from "@onreza/tochka-sdk/pay-gateway";
+import { TochkaError } from "@onreza/tochka-sdk/errors";
+
+const bank = new TochkaClient({ auth: { sandbox: true } });
+const gateway = new PayGatewayClient({ token: "test", baseUrl: "https://pay.example" });
+const dynamic: CreateSbpFunctionalLinkRequest = { siteUid: "site", qrcType: "DYNAMIC", amount: { amount: "1.00", currency: "RUB" } };
+const staticCode: CreateSbpFunctionalLinkRequest = { siteUid: "site", qrcType: "STATIC" };
+const digital: CreateSbpFunctionalLinkRequest = { ...dynamic, paymentMethods: ["DIGITAL_RUBLE"], paymentPageUrl: "https://shop.example/pay" };
+
+void gateway.sbpFunctionalLinks.create(dynamic);
+void gateway.cashRegisterQrc.create("site", {});
+void gateway.payments.retryRefund("site", "payment", "refund", {
+  refundMethod: { type: "CARD", pan: "4111111111111111", cvv2: "123", expirationDate: "12/28" },
+});
+const retryForm: Promise<{ url: string; expirationDateTime: string }> = gateway.payments.createRefundRetryForm("site", "payment", "refund");
+const deleted: Promise<void> = gateway.payments.deleteRefundRetryForm("site", "payment", "refund");
+const webhook: Promise<TochkaWebhookEvent> = verifyWebhook("signed-jwt");
+
+function readPayment(operation: PayGatewayOperation): string | undefined {
+  if (operation.paymentMethod.type === "DIGITAL_RUBLE") return operation.paymentMethod.operationId;
+  if (operation.paymentMethod.type === "DIGITAL_RUBLE_CASH_REGISTER_QRC") return operation.paymentMethod.activationUid;
+  return undefined;
+}
+function readMainUpdates(payment: PaymentForSign, customer: SbpCustomerInfo): (string | undefined)[] {
+  return [payment.gisEmail, payment.gisPhoneNumber, customer.DigitalRubleWallet?.walletId];
+}
+// @ts-expect-error DYNAMIC codes require an amount, including in published declarations.
+const invalidCode: CreateSbpFunctionalLinkRequest = { siteUid: "site", qrcType: "DYNAMIC" };
+void [bank, staticCode, digital, retryForm, deleted, webhook, readPayment, readMainUpdates, invalidCode, TochkaError];
+`;
+	for (const extension of ["mts", "cts"]) {
+		await Bun.write(join(consumerRoot, `consumer.${extension}`), consumerSource);
+	}
+	for (const compilerRoot of [resolve(PACKAGE_ROOT, "../.."), PACKAGE_ROOT]) {
+		const compiler = Bun.spawn(
+			[
+				process.execPath,
+				join(compilerRoot, "node_modules/typescript/bin/tsc"),
+				"--noEmit",
+				"--strict",
+				"--exactOptionalPropertyTypes",
+				"--noUncheckedIndexedAccess",
+				"--target",
+				"es2022",
+				"--module",
+				"nodenext",
+				"--moduleResolution",
+				"nodenext",
+				"consumer.mts",
+				"consumer.cts",
+			],
+			{ cwd: consumerRoot, stdout: "inherit", stderr: "inherit" },
+		);
+		if ((await compiler.exited) !== 0)
+			throw new Error(`Packed consumer typecheck failed using ${compilerRoot}`);
+	}
+
 	console.log(
-		`✓ Package contains ${files.size} files; fresh ESM/CJS imports passed for all exports`,
+		`✓ Package contains ${files.size} files; fresh ESM/CJS imports and consumer types passed`,
 	);
 } finally {
 	await rm(tempRoot, { recursive: true, force: true });

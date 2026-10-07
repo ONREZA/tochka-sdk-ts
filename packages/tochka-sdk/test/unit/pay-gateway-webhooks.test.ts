@@ -227,6 +227,67 @@ describe("verifyPayGatewayWebhook", () => {
 		expect(event.event).toBe("refund-updated");
 	});
 
+	test("refund-updated validates optional refund method result before typed access", async () => {
+		const { privateKey, publicKey } = await makeKeypair();
+		for (const refundMethodResult of [
+			null,
+			{},
+			{ type: "UNKNOWN" },
+			{ type: "CARD" },
+			{ type: "CARD", isReversal: "false" },
+			{ type: "DIGITAL_RUBLE", operationId: 1 },
+			{ type: "DIGITAL_RUBLE_CASH_REGISTER_QRC", operationId: null },
+		]) {
+			const jwt = await sign(privateKey, {
+				version: "1.0",
+				siteUid: "site-1",
+				createdAt: CREATED_AT,
+				event: "refund-updated",
+				payloadType: "refund",
+				paymentUid: "p1",
+				payload: {
+					refundUid: "r1",
+					createdDateTime: CREATED_AT,
+					amount: money(),
+					status: completedStatus(),
+					metadata: "{}",
+					refundMethodResult,
+				},
+			});
+			await expect(
+				verifyPayGatewayWebhook(jwt, { keySource: { key: publicKey } }),
+			).rejects.toMatchObject({ reason: "payload_shape" });
+		}
+	});
+
+	test("refund-updated preserves both digital-ruble results with optional operationId", async () => {
+		const { privateKey, publicKey } = await makeKeypair();
+		for (const type of ["DIGITAL_RUBLE", "DIGITAL_RUBLE_CASH_REGISTER_QRC"]) {
+			for (const details of [{}, { operationId: "digital-operation-1" }]) {
+				const refundMethodResult = { type, ...details };
+				const jwt = await sign(privateKey, {
+					version: "1.0",
+					siteUid: "site-1",
+					createdAt: CREATED_AT,
+					event: "refund-updated",
+					payloadType: "refund",
+					paymentUid: "p1",
+					payload: {
+						refundUid: "r1",
+						createdDateTime: CREATED_AT,
+						amount: money(),
+						status: completedStatus(),
+						metadata: "{}",
+						refundMethodResult,
+					},
+				});
+				const event = await verifyPayGatewayWebhook(jwt, { keySource: { key: publicKey } });
+				if (event.event !== "refund-updated") expect.unreachable();
+				expect(event.payload.refundMethodResult).toEqual(refundMethodResult);
+			}
+		}
+	});
+
 	test("payment-updated проверяет весь обязательный payload", async () => {
 		const { privateKey, publicKey } = await makeKeypair();
 		const { amount: _amount, ...incompletePayload } = paymentPayload();

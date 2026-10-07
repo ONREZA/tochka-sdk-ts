@@ -66,8 +66,7 @@ export function buildFetchClient(init: TochkaFetchInit): TochkaFetchClient {
 	const client = createClient<paths>(options);
 	client.use(authMiddleware(init.auth));
 	client.use(errorMiddleware());
-	const timeout = timeoutMiddleware(init.timeoutMs);
-	if (timeout) client.use(timeout);
+	client.use(timeoutMiddleware(init.timeoutMs));
 	const telemetry = telemetryMiddleware(init);
 	if (telemetry) client.use(telemetry);
 	return client;
@@ -83,10 +82,11 @@ function authMiddleware(auth: AuthProvider): Middleware {
 	};
 }
 
-function timeoutMiddleware(timeoutMs: number | undefined): Middleware | null {
-	if (!timeoutMs || timeoutMs <= 0) return null;
+function timeoutMiddleware(timeoutMs: number | undefined): Middleware {
 	return {
 		async onRequest({ request }) {
+			if (request.signal.aborted) throw request.signal.reason;
+			if (!timeoutMs || timeoutMs <= 0) return request;
 			const ac = new AbortController();
 			const existing = request.signal;
 			const forwardAbort = () => ac.abort(existing.reason);
@@ -102,8 +102,58 @@ function timeoutMiddleware(timeoutMs: number | undefined): Middleware | null {
 			return newReq;
 		},
 		async onResponse({ request, response }) {
-			clearRequestTimeout(request);
-			return response;
+			if (!response.body) {
+				clearRequestTimeout(request);
+				return response;
+			}
+			const state = timeoutStates.get(request);
+			const reader = response.body.getReader();
+			const body = new ReadableStream<Uint8Array>({
+				async pull(controller) {
+					try {
+						const { done, value } = await reader.read();
+						if (done) {
+							clearRequestTimeout(request);
+							controller.close();
+						} else controller.enqueue(value);
+					} catch (error) {
+						clearRequestTimeout(request);
+						if (!state?.timedOut && request.signal.aborted && isReadOnlyMethod(request.method)) {
+							controller.error(request.signal.reason ?? error);
+							return;
+						}
+						const ResponseError = isReadOnlyMethod(request.method)
+							? TochkaNetworkError
+							: TochkaUnknownOutcomeError;
+						controller.error(
+							new ResponseError(`Response body failed for ${request.method} ${request.url}`, {
+								url: request.url,
+								method: request.method,
+								cause: error,
+							}),
+						);
+					}
+				},
+				async cancel(reason) {
+					clearRequestTimeout(request);
+					await reader.cancel(reason);
+				},
+			});
+			const wrapped = new Response(body, {
+				status: response.status,
+				statusText: response.statusText,
+				headers: response.headers,
+			});
+			function preserveMetadata(copy: Response): Response {
+				for (const field of ["url", "redirected", "type"] as const) {
+					Object.defineProperty(copy, field, { value: response[field] });
+				}
+				Object.defineProperty(copy, "clone", {
+					value: () => preserveMetadata(Response.prototype.clone.call(copy)),
+				});
+				return copy;
+			}
+			return preserveMetadata(wrapped);
 		},
 		async onError({ request, error }) {
 			const state = timeoutStates.get(request);

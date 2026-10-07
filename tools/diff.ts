@@ -216,6 +216,33 @@ export function buildOpenApiDiff(current: JsonObject, previous: JsonObject): str
 		sections.push(`## Изменена документация операций (${documentedOperations.length})`);
 		sections.push(documentedOperations.map(formatOperation).join("\n"));
 	}
+	const unlistedPaths = (spec: JsonObject) =>
+		Object.fromEntries(
+			Object.entries(asObject(spec.paths)).filter(
+				([, value]) => !Object.keys(asObject(value)).some((key) => HTTP_METHODS.has(key)),
+			),
+		);
+	const pathChanges = schemaChanges(unlistedPaths(current), unlistedPaths(previous), "paths");
+	if (pathChanges.length) {
+		sections.push("## Изменены ссылки и настройки путей");
+		sections.push(pathChanges.join("\n"));
+	}
+	const documentation = (spec: JsonObject) => ({
+		info: Object.fromEntries(
+			Object.entries(asObject(spec.info)).filter(([key]) => key !== "version"),
+		),
+		tags: spec.tags,
+		externalDocs: spec.externalDocs,
+	});
+	const documentationChanges = schemaChanges(
+		documentation(current),
+		documentation(previous),
+		"document",
+	);
+	if (documentationChanges.length) {
+		sections.push("## Изменена документация API");
+		sections.push(documentationChanges.join("\n"));
+	}
 
 	const sharedChanges = new Set<string>();
 	for (const key of new Set([...Object.keys(current), ...Object.keys(previous)])) {

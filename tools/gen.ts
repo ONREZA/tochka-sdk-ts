@@ -17,7 +17,7 @@ function header(target: SpecTarget): string {
 `;
 }
 
-async function generateTypes(target: SpecTarget): Promise<void> {
+async function generateTypes(target: SpecTarget): Promise<{ path: string; content: string }> {
 	console.log(`→ Generating ${target.label} types from ${target.path}`);
 	const source =
 		target.id === "pay-gateway"
@@ -32,22 +32,17 @@ async function generateTypes(target: SpecTarget): Promise<void> {
 		immutable: false,
 	});
 	const body = astToString(ast);
-	await mkdir(dirname(target.generatedPath), { recursive: true });
-	await writeFile(target.generatedPath, header(target) + body);
-	console.log(`✓ Wrote ${target.generatedPath}`);
+	return { path: target.generatedPath, content: header(target) + body };
 }
 
 async function main() {
-	await mkdir(OUT_DIR, { recursive: true });
-	await Promise.all(SPEC_TARGETS.map(generateTypes));
-
 	const mainTarget = SPEC_TARGETS.find((target) => target.id === "tochka");
 	if (!mainTarget) throw new Error("Missing Tochka API spec target");
 	const spec = await readOpenApi(mainTarget.path);
 
 	const prodServer = spec.servers.find((server) => /uapi/.test(server.url))?.url;
 	const sandboxServer = spec.servers.find((server) => /sandbox/.test(server.url))?.url;
-	if (!prodServer || !sandboxServer) {
+	if (!prodServer || !sandboxServer || prodServer === sandboxServer) {
 		throw new Error("OpenAPI must declare distinct production and sandbox server URLs");
 	}
 
@@ -57,8 +52,15 @@ export const TOCHKA_API_TITLE = ${JSON.stringify(spec.info.title)} as const;
 export const TOCHKA_BASE_URL_PROD = ${JSON.stringify(prodServer)} as const;
 export const TOCHKA_BASE_URL_SANDBOX = ${JSON.stringify(sandboxServer)} as const;
 `;
-	await writeFile(META_FILE, meta);
-	console.log(`✓ Wrote ${META_FILE} (API version: ${spec.info.version})`);
+	const outputs = [
+		...(await Promise.all(SPEC_TARGETS.map(generateTypes))),
+		{ path: META_FILE, content: meta },
+	];
+	for (const output of outputs) {
+		await mkdir(dirname(output.path), { recursive: true });
+		await writeFile(output.path, output.content);
+		console.log(`✓ Wrote ${output.path}`);
+	}
 }
 
 await main();

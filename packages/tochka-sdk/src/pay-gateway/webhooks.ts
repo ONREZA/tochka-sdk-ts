@@ -155,6 +155,27 @@ function assertRefundPayload(payload: Record<string, unknown>): void {
 	assertStrings(payload, ["refundUid", "createdDateTime", "metadata"]);
 	assertMoney(payload.amount, "amount");
 	assertStatus(payload.status);
+	if (payload.refundMethodResult !== undefined) {
+		const result = payload.refundMethodResult;
+		assertRecord(result, "refundMethodResult");
+		assertEnum(
+			result,
+			"type",
+			PAYMENT_METHOD_TYPES.filter((type) => type !== "SAVED_CARD"),
+		);
+		if (result.type === "CARD") {
+			assertBoolean(result, "isReversal");
+			assertOptionalString(result, "rrn");
+			assertOptionalString(result, "authCode");
+		} else if (
+			result.type === "DIGITAL_RUBLE" ||
+			result.type === "DIGITAL_RUBLE_CASH_REGISTER_QRC"
+		) {
+			assertOptionalString(result, "operationId");
+		} else {
+			assertOptionalString(result, "nspkTransactionId");
+		}
+	}
 }
 
 function assertMoney(value: unknown, name: string): void {

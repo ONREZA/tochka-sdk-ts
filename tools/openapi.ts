@@ -78,69 +78,119 @@ export function serializeOpenApi(document: OpenApiDocument): string {
 	return `${JSON.stringify(document, null, 2)}\n`;
 }
 
+const PAYLOAD_KEYS = new Set(["example", "examples", "default", "enum", "const"]);
+
+function visitSchemas(value: unknown, visit: (schema: Record<string, unknown>) => void) {
+	function schema(value: unknown) {
+		if (!isRecord(value)) return;
+		visit(value);
+		for (const key of [
+			"properties",
+			"patternProperties",
+			"dependentSchemas",
+			"$defs",
+			"definitions",
+		])
+			if (isRecord(value[key])) for (const child of Object.values(value[key])) schema(child);
+		for (const key of [
+			"items",
+			"additionalProperties",
+			"unevaluatedProperties",
+			"contains",
+			"propertyNames",
+			"not",
+			"if",
+			"then",
+			"else",
+		])
+			schema(value[key]);
+		for (const key of ["allOf", "oneOf", "anyOf", "prefixItems"])
+			if (Array.isArray(value[key])) for (const child of value[key]) schema(child);
+	}
+	if (!value || typeof value !== "object") return;
+	for (const [key, child] of Object.entries(value)) {
+		if (key === "schema") schema(child);
+		else if (key === "schemas" && isRecord(child))
+			for (const entry of Object.values(child)) schema(entry);
+		else if (!PAYLOAD_KEYS.has(key) && !key.startsWith("x-")) visitSchemas(child, visit);
+	}
+}
+
 /** Pay Gateway uses wire enum values that differ from the schema names inferred without a mapping. */
 export function stripUnmappedDiscriminators(value: unknown): unknown {
-	if (Array.isArray(value)) return value.map(stripUnmappedDiscriminators);
-	if (!isRecord(value)) return value;
-	return Object.fromEntries(
-		Object.entries(value)
-			.filter(
-				([key, child]) =>
-					!(
-						key === "discriminator" &&
-						isRecord(child) &&
-						typeof child.propertyName === "string" &&
-						!("mapping" in child)
-					),
-			)
-			.map(([key, child]) => [key, stripUnmappedDiscriminators(child)]),
-	);
+	const normalized = structuredClone(value);
+	visitSchemas(normalized, (schema) => {
+		if (
+			isRecord(schema.discriminator) &&
+			typeof schema.discriminator.propertyName === "string" &&
+			!("mapping" in schema.discriminator)
+		)
+			delete schema.discriminator;
+	});
+	return normalized;
 }
 
 export function normalizePayGatewaySpec(document: OpenApiDocument): OpenApiDocument {
 	// Defaults do not require callers to send a property; keep shared response guarantees intact.
 	const normalized = stripUnmappedDiscriminators(document) as OpenApiDocument;
-	const requestRefs = new Set<string>();
-	const responseRefs = new Set<string>();
-	function collect(value: unknown, refs: Set<string>) {
-		if (!value || typeof value !== "object") return;
-		if (isRecord(value) && typeof value.$ref === "string" && value.$ref.startsWith("#/")) {
-			const ref = value.$ref;
-			if (!refs.has(ref)) {
-				refs.add(ref);
-				let target: unknown = normalized;
-				for (const part of ref.slice(2).split("/"))
-					target = isRecord(target)
-						? target[part.replace(/~1/g, "/").replace(/~0/g, "~")]
-						: undefined;
-				collect(target, refs);
-			}
+	const requestNodes = new Set<object>();
+	const responseNodes = new Set<object>();
+	function resolveRef(ref: string): unknown {
+		let target: unknown = normalized;
+		for (const part of decodeURIComponent(ref.slice(2)).split("/")) {
+			if (!target || typeof target !== "object") return undefined;
+			target = (target as Record<string, unknown>)[part.replace(/~1/g, "/").replace(/~0/g, "~")];
 		}
-		for (const child of Object.values(value)) collect(child, refs);
+		return target;
 	}
-	for (const path of Object.values(normalized.paths)) {
-		if (!isRecord(path)) continue;
-		for (const operation of Object.values(path)) {
+	function collect(value: unknown, nodes: Set<object>, namedSchemas = false) {
+		if (!value || typeof value !== "object" || nodes.has(value)) return;
+		nodes.add(value);
+		if (isRecord(value) && typeof value.$ref === "string" && value.$ref.startsWith("#/"))
+			collect(resolveRef(value.$ref), nodes);
+		for (const [key, child] of Object.entries(value))
+			if (namedSchemas || (!PAYLOAD_KEYS.has(key) && !key.startsWith("x-")))
+				collect(
+					child,
+					nodes,
+					!namedSchemas &&
+						[
+							"properties",
+							"patternProperties",
+							"dependentSchemas",
+							"$defs",
+							"definitions",
+							"schemas",
+						].includes(key),
+				);
+	}
+	const visitedPaths = new Set<object>();
+	function collectPath(value: unknown) {
+		if (!isRecord(value) || visitedPaths.has(value)) return;
+		visitedPaths.add(value);
+		if (typeof value.$ref === "string" && value.$ref.startsWith("#/"))
+			collectPath(resolveRef(value.$ref));
+		collect(value.parameters, requestNodes);
+		for (const operation of Object.values(value)) {
 			if (!isRecord(operation)) continue;
-			collect(operation.requestBody, requestRefs);
-			collect(operation.responses, responseRefs);
+			collect(operation.parameters, requestNodes);
+			collect(operation.requestBody, requestNodes);
+			collect(operation.responses, responseNodes);
+			// Callback payloads are sent by the bank, just like responses and webhooks.
+			collect(operation.callbacks, responseNodes);
 		}
 	}
-	function optionalDefaults(value: unknown) {
-		if (!value || typeof value !== "object") return;
-		if (isRecord(value) && isRecord(value.properties)) {
-			for (const [name, property] of Object.entries(value.properties)) {
-				if (isRecord(property) && !(Array.isArray(value.required) && value.required.includes(name)))
-					delete property.default;
-			}
-		}
-		for (const child of Object.values(value)) optionalDefaults(child);
-	}
-	for (const ref of requestRefs) {
-		if (responseRefs.has(ref) || !ref.startsWith("#/components/schemas/")) continue;
-		const name = ref.slice("#/components/schemas/".length).replace(/~1/g, "/").replace(/~0/g, "~");
-		const components = isRecord(normalized.components) ? normalized.components : {};
-		optionalDefaults(isRecord(components.schemas) ? components.schemas[name] : undefined);
+	for (const path of Object.values(normalized.paths)) collectPath(path);
+	collect(normalized.webhooks, responseNodes);
+	for (const node of requestNodes) {
+		if (responseNodes.has(node) || !isRecord(node) || !isRecord(node.properties)) continue;
+		for (const [name, property] of Object.entries(node.properties))
+			if (
+				isRecord(property) &&
+				!responseNodes.has(property) &&
+				!(Array.isArray(node.required) && node.required.includes(name))
+			)
+				delete property.default;
 	}
 	return normalized;
 }

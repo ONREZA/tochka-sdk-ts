@@ -214,6 +214,10 @@ try {
 Расширять `retry.retryableMethods` для записывающих методов безопасно только при
 документированной server-side idempotency.
 
+`timeoutMs` охватывает получение заголовков и чтение тела ответа. При
+`parseAs: "stream"` таймаут действует до завершения или отмены потока.
+Обрыв ответа после записывающего запроса означает `TochkaUnknownOutcomeError`.
+
 ## Разработка
 
 См. [CONTRIBUTING.md](./CONTRIBUTING.md).

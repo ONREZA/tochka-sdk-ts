@@ -2,6 +2,20 @@ import { describe, expect, test } from "bun:test";
 import { buildOpenApiDiff } from "./diff.js";
 
 describe("buildOpenApiDiff", () => {
+	test("reports referenced path changes and top-level documentation updates", () => {
+		const previous = {
+			info: { title: "Old title", version: "1" },
+			paths: { "/item": { $ref: "#/components/pathItems/Old" } },
+		};
+		const current = {
+			info: { title: "New title", version: "1" },
+			paths: { "/item": { $ref: "#/components/pathItems/New" } },
+		};
+		const report = buildOpenApiDiff(current, previous);
+		expect(report).toContain("`paths./item.$ref`");
+		expect(report).toContain("`document.info.title`");
+		expect(report).not.toContain("Изменений API-контракта нет.");
+	});
 	test("показывает schema-only изменения enum и properties", () => {
 		const previous = {
 			info: { version: "1.0" },

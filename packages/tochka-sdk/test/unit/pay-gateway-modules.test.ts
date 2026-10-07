@@ -37,7 +37,7 @@ describe("дополнительные модули Pay Gateway", () => {
 
 		await client.cardTokens.deactivate("site/1", {
 			account: "account-1",
-			operation: "DEACTIVATE",
+			operation: "DEACTIVATE_TOKEN",
 			token: "0d7ebfd5-b751-4d52-8df5-b73b252f82df",
 		});
 		await client.invoices.create("site/1", {
@@ -55,7 +55,7 @@ describe("дополнительные модули Pay Gateway", () => {
 				body: JSON.stringify({
 					Data: {
 						account: "account-1",
-						operation: "DEACTIVATE",
+						operation: "DEACTIVATE_TOKEN",
 						token: "0d7ebfd5-b751-4d52-8df5-b73b252f82df",
 					},
 				}),
