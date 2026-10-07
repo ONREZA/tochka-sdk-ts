@@ -32,12 +32,12 @@
       "description": "Методы для проведения возвратов"
     },
     {
-      "name": "Функциональные ссылки СБП",
-      "description": "Методы для работы с Функциональными ссылками СБП"
+      "name": "Универсальные платёжные коды",
+      "description": "Методы для работы с Универсальными платёжными кодами (УПК)"
     },
     {
-      "name": "Кассовые ссылки СБП",
-      "description": "Методы для работы с Кассовыми ссылками СБП"
+      "name": "Кассовые Универсальные платёжные коды",
+      "description": "Методы для работы с Кассовыми Универсальными платёжными кодами (УПК)"
     },
     {
       "name": "Платёжные токены",
@@ -145,13 +145,501 @@
         }
       }
     },
+    "/{apiVersion}/sites/{siteUid}/payments/{paymentUid}/refunds/{refundUid}/retry-form": {
+      "put": {
+        "tags": [
+          "Возвраты"
+        ],
+        "summary": "Создание формы сбора реквизитов для повтора возврата",
+        "description": "Возвращает ссылку на форму, где плательщик сам вводит новые реквизиты возврата.",
+        "operationId": "createRetryForm",
+        "parameters": [
+          {
+            "name": "siteUid",
+            "in": "path",
+            "required": true,
+            "$ref": "#/components/parameters/siteUid",
+            "schema": {
+              "pattern": "^[0-9a-zA-Z-_]{1,64}$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "paymentUid",
+            "in": "path",
+            "required": true,
+            "$ref": "#/components/parameters/paymentUid",
+            "schema": {
+              "pattern": "^[0-9a-zA-Z-]{1,64}$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "refundUid",
+            "in": "path",
+            "required": true,
+            "$ref": "#/components/parameters/refundUid",
+            "schema": {
+              "pattern": "^[0-9a-zA-Z-]{1,64}$",
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/authorizationHeader"
+          },
+          {
+            "name": "apiVersion",
+            "in": "path",
+            "description": "Версия API",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "v1.0"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundRetryFormResponseDTOWrapped"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTPBadRequest",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                },
+                "example": {
+                  "code": "400",
+                  "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                  "message": "REQUEST_VALIDATION_ERROR",
+                  "Errors": [
+                    {
+                      "errorCode": "data.amount",
+                      "message": "Incorrect operation amount. Should have correct number of fraction digits for currency RUB.",
+                      "url": "https://enter.tochka.com/uapi/pay"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                },
+                "example": {
+                  "code": "401",
+                  "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                  "message": "INVALID_TOKEN",
+                  "Errors": [
+                    {
+                      "errorCode": "TOKEN_EXPIRED",
+                      "message": "The token is expired, issue a new one",
+                      "url": "https://enter.tochka.com/uapi/pay"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                },
+                "example": {
+                  "code": "403",
+                  "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                  "message": "OPERATION_FORBIDDEN",
+                  "Errors": [
+                    {
+                      "errorCode": "SIGNATURE_VERIFICATION_ERROR",
+                      "message": "Invalid signature format",
+                      "url": "https://enter.tochka.com/uapi/pay"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                },
+                "example": {
+                  "code": "404",
+                  "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                  "message": "ENTITY_NOT_FOUND",
+                  "Errors": [
+                    {
+                      "errorCode": "MERCHANT_SITE_NOT_FOUND",
+                      "message": "Can not found merchant site with siteUid:<Some site uid>.",
+                      "url": "https://enter.tochka.com/uapi/pay"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "Locked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                },
+                "example": {
+                  "code": "423",
+                  "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                  "message": "OPERATION_LOCKED",
+                  "Errors": [
+                    {
+                      "errorCode": "PAYMENT_LOCKED",
+                      "message": "Payment with paymentUid:<some payment uid> already locked by parallel operation.",
+                      "url": "https://enter.tochka.com/uapi/pay"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                },
+                "example": {
+                  "code": "500",
+                  "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                  "message": "INTERNAL_ERROR",
+                  "Errors": [
+                    {
+                      "errorCode": "CARD_PROCESSING_ERROR",
+                      "message": "Unexpected error on card processing side.",
+                      "url": "https://enter.tochka.com/uapi/pay"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                },
+                "example": {
+                  "code": "501",
+                  "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                  "message": "UNSUPPORTED_OPERATION",
+                  "Errors": [
+                    {
+                      "errorCode": "UNSUPPORTED_PAYMENT_METHOD",
+                      "message": "Payment method APPLE_PAY not supported by processing.",
+                      "url": "https://enter.tochka.com/uapi/pay"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                },
+                "example": {
+                  "code": "503",
+                  "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                  "message": "UNDERLYING_SERVICE_UNAVAILABLE",
+                  "Errors": [
+                    {
+                      "errorCode": "CONNECTION_BROKEN",
+                      "message": "Service unavailable, please try operation later.",
+                      "url": "https://enter.tochka.com/uapi/pay"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Возвраты"
+        ],
+        "summary": "Деактивация формы сбора реквизитов для повтора возврата",
+        "description": "Отзывает ранее выданную ссылку на форму.",
+        "operationId": "deleteRetryForm",
+        "parameters": [
+          {
+            "name": "siteUid",
+            "in": "path",
+            "required": true,
+            "$ref": "#/components/parameters/siteUid",
+            "schema": {
+              "pattern": "^[0-9a-zA-Z-_]{1,64}$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "paymentUid",
+            "in": "path",
+            "required": true,
+            "$ref": "#/components/parameters/paymentUid",
+            "schema": {
+              "pattern": "^[0-9a-zA-Z-]{1,64}$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "refundUid",
+            "in": "path",
+            "required": true,
+            "$ref": "#/components/parameters/refundUid",
+            "schema": {
+              "pattern": "^[0-9a-zA-Z-]{1,64}$",
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/authorizationHeader"
+          },
+          {
+            "name": "apiVersion",
+            "in": "path",
+            "description": "Версия API",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "v1.0"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnitWrapped"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTPBadRequest",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                },
+                "example": {
+                  "code": "400",
+                  "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                  "message": "REQUEST_VALIDATION_ERROR",
+                  "Errors": [
+                    {
+                      "errorCode": "data.amount",
+                      "message": "Incorrect operation amount. Should have correct number of fraction digits for currency RUB.",
+                      "url": "https://enter.tochka.com/uapi/pay"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                },
+                "example": {
+                  "code": "401",
+                  "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                  "message": "INVALID_TOKEN",
+                  "Errors": [
+                    {
+                      "errorCode": "TOKEN_EXPIRED",
+                      "message": "The token is expired, issue a new one",
+                      "url": "https://enter.tochka.com/uapi/pay"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                },
+                "example": {
+                  "code": "403",
+                  "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                  "message": "OPERATION_FORBIDDEN",
+                  "Errors": [
+                    {
+                      "errorCode": "SIGNATURE_VERIFICATION_ERROR",
+                      "message": "Invalid signature format",
+                      "url": "https://enter.tochka.com/uapi/pay"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                },
+                "example": {
+                  "code": "404",
+                  "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                  "message": "ENTITY_NOT_FOUND",
+                  "Errors": [
+                    {
+                      "errorCode": "MERCHANT_SITE_NOT_FOUND",
+                      "message": "Can not found merchant site with siteUid:<Some site uid>.",
+                      "url": "https://enter.tochka.com/uapi/pay"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "Locked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                },
+                "example": {
+                  "code": "423",
+                  "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                  "message": "OPERATION_LOCKED",
+                  "Errors": [
+                    {
+                      "errorCode": "PAYMENT_LOCKED",
+                      "message": "Payment with paymentUid:<some payment uid> already locked by parallel operation.",
+                      "url": "https://enter.tochka.com/uapi/pay"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                },
+                "example": {
+                  "code": "500",
+                  "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                  "message": "INTERNAL_ERROR",
+                  "Errors": [
+                    {
+                      "errorCode": "CARD_PROCESSING_ERROR",
+                      "message": "Unexpected error on card processing side.",
+                      "url": "https://enter.tochka.com/uapi/pay"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                },
+                "example": {
+                  "code": "501",
+                  "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                  "message": "UNSUPPORTED_OPERATION",
+                  "Errors": [
+                    {
+                      "errorCode": "UNSUPPORTED_PAYMENT_METHOD",
+                      "message": "Payment method APPLE_PAY not supported by processing.",
+                      "url": "https://enter.tochka.com/uapi/pay"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                },
+                "example": {
+                  "code": "503",
+                  "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                  "message": "UNDERLYING_SERVICE_UNAVAILABLE",
+                  "Errors": [
+                    {
+                      "errorCode": "CONNECTION_BROKEN",
+                      "message": "Service unavailable, please try operation later.",
+                      "url": "https://enter.tochka.com/uapi/pay"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/{apiVersion}/sites/{siteUid}/sbp/qrc": {
       "post": {
         "tags": [
-          "Функциональные ссылки СБП"
+          "Универсальные платёжные коды"
         ],
-        "summary": "Создание Функциональной ссылки СБП",
-        "description": "Создать Функциональную ссылку СБП",
+        "summary": "Создание УПК",
+        "description": "Создать Универсальный платёжный код",
         "operationId": "createQRCode",
         "parameters": [
           {
@@ -383,10 +871,10 @@
     "/{apiVersion}/sites/{siteUid}/sbp/qrc/cash-register-qrc": {
       "post": {
         "tags": [
-          "Кассовые ссылки СБП"
+          "Кассовые Универсальные платёжные коды"
         ],
-        "summary": "Создание Кассовой ссылки СБП",
-        "description": "Создать Кассовую ссылку СБП",
+        "summary": "Создание Кассового УПК",
+        "description": "Создать Кассовый Универсальный платёжный код",
         "operationId": "createCashRegisterQrCode",
         "parameters": [
           {
@@ -618,10 +1106,10 @@
     "/{apiVersion}/sites/{siteUid}/sbp/qrc/cash-register-qrc/{qrcId}/activations": {
       "post": {
         "tags": [
-          "Кассовые ссылки СБП"
+          "Кассовые Универсальные платёжные коды"
         ],
-        "summary": "Активация Кассовой ссылки СБП",
-        "description": "Активировать Кассовую ссылку СБП",
+        "summary": "Активация Кассового УПК",
+        "description": "Активировать Кассовый Универсальный платёжный код",
         "operationId": "activateCashRegisterQrCode",
         "parameters": [
           {
@@ -637,7 +1125,7 @@
           {
             "name": "qrcId",
             "in": "path",
-            "description": "Идентификатор зарегистрированной Кассовой ссылки СБП",
+            "description": "Идентификатор зарегистрированного Кассового УПК",
             "required": true,
             "schema": {
               "pattern": "^[0-9a-zA-Z-]{1,64}$",
@@ -1397,6 +1885,264 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/WrappedRequestDTORefundRequestDTO"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundResponseDTOWrapped"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTPBadRequest",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                },
+                "example": {
+                  "code": "400",
+                  "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                  "message": "REQUEST_VALIDATION_ERROR",
+                  "Errors": [
+                    {
+                      "errorCode": "data.amount",
+                      "message": "Incorrect operation amount. Should have correct number of fraction digits for currency RUB.",
+                      "url": "https://enter.tochka.com/uapi/pay"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                },
+                "example": {
+                  "code": "401",
+                  "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                  "message": "INVALID_TOKEN",
+                  "Errors": [
+                    {
+                      "errorCode": "TOKEN_EXPIRED",
+                      "message": "The token is expired, issue a new one",
+                      "url": "https://enter.tochka.com/uapi/pay"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                },
+                "example": {
+                  "code": "403",
+                  "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                  "message": "OPERATION_FORBIDDEN",
+                  "Errors": [
+                    {
+                      "errorCode": "SIGNATURE_VERIFICATION_ERROR",
+                      "message": "Invalid signature format",
+                      "url": "https://enter.tochka.com/uapi/pay"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                },
+                "example": {
+                  "code": "404",
+                  "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                  "message": "ENTITY_NOT_FOUND",
+                  "Errors": [
+                    {
+                      "errorCode": "MERCHANT_SITE_NOT_FOUND",
+                      "message": "Can not found merchant site with siteUid:<Some site uid>.",
+                      "url": "https://enter.tochka.com/uapi/pay"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "Locked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                },
+                "example": {
+                  "code": "423",
+                  "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                  "message": "OPERATION_LOCKED",
+                  "Errors": [
+                    {
+                      "errorCode": "PAYMENT_LOCKED",
+                      "message": "Payment with paymentUid:<some payment uid> already locked by parallel operation.",
+                      "url": "https://enter.tochka.com/uapi/pay"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                },
+                "example": {
+                  "code": "500",
+                  "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                  "message": "INTERNAL_ERROR",
+                  "Errors": [
+                    {
+                      "errorCode": "CARD_PROCESSING_ERROR",
+                      "message": "Unexpected error on card processing side.",
+                      "url": "https://enter.tochka.com/uapi/pay"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                },
+                "example": {
+                  "code": "501",
+                  "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                  "message": "UNSUPPORTED_OPERATION",
+                  "Errors": [
+                    {
+                      "errorCode": "UNSUPPORTED_PAYMENT_METHOD",
+                      "message": "Payment method APPLE_PAY not supported by processing.",
+                      "url": "https://enter.tochka.com/uapi/pay"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDTO"
+                },
+                "example": {
+                  "code": "503",
+                  "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                  "message": "UNDERLYING_SERVICE_UNAVAILABLE",
+                  "Errors": [
+                    {
+                      "errorCode": "CONNECTION_BROKEN",
+                      "message": "Service unavailable, please try operation later.",
+                      "url": "https://enter.tochka.com/uapi/pay"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/{apiVersion}/sites/{siteUid}/payments/{paymentUid}/refunds/{refundUid}/retry": {
+      "post": {
+        "tags": [
+          "Возвраты"
+        ],
+        "summary": "Повтор операции возврата с новыми реквизитами",
+        "description": "Повторяет неуспешную операцию возврата, используя новые реквизиты получателя.",
+        "operationId": "retryRefund",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/signature"
+          },
+          {
+            "name": "siteUid",
+            "in": "path",
+            "required": true,
+            "$ref": "#/components/parameters/siteUid",
+            "schema": {
+              "pattern": "^[0-9a-zA-Z-_]{1,64}$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "paymentUid",
+            "in": "path",
+            "required": true,
+            "$ref": "#/components/parameters/paymentUid",
+            "schema": {
+              "pattern": "^[0-9a-zA-Z-]{1,64}$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "refundUid",
+            "in": "path",
+            "required": true,
+            "$ref": "#/components/parameters/refundUid",
+            "schema": {
+              "pattern": "^[0-9a-zA-Z-]{1,64}$",
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/authorizationHeader"
+          },
+          {
+            "name": "apiVersion",
+            "in": "path",
+            "description": "Версия API",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "v1.0"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WrappedRequestDTORefundRetryRequestDTO"
               }
             }
           },
@@ -3036,10 +3782,10 @@
     "/{apiVersion}/sites/{siteUid}/sbp/qrc/{qrcId}": {
       "get": {
         "tags": [
-          "Функциональные ссылки СБП"
+          "Универсальные платёжные коды"
         ],
-        "summary": "Запрос содержимого для ранее зарегистрированной Функциональной ссылки СБП",
-        "description": "Получить содержимое ранее зарегистрированной Функциональной ссылки СБП",
+        "summary": "Запрос содержимого для ранее зарегистрированного УПК",
+        "description": "Получить содержимое ранее зарегистрированного Универсального платёжного кода",
         "operationId": "getQRCode",
         "parameters": [
           {
@@ -3055,7 +3801,7 @@
           {
             "name": "qrcId",
             "in": "path",
-            "description": "Идентификатор зарегистрированной Функциональной ссылки СБП",
+            "description": "Идентификатор зарегистрированного УПК",
             "required": true,
             "schema": {
               "pattern": "^[0-9a-zA-Z-]{1,64}$",
@@ -3323,10 +4069,10 @@
     "/{apiVersion}/sites/{siteUid}/sbp/qrc/{qrcId}/tokenization/result": {
       "get": {
         "tags": [
-          "Функциональные ссылки СБП"
+          "Универсальные платёжные коды"
         ],
-        "summary": "Запрос результата выполнения привязки счёта по ранее зарегистрированной Функциональной ссылке СБП",
-        "description": "Получить результат выполнения привязки счёта по ранее зарегистрированной Функциональной ссылке СБП",
+        "summary": "Запрос результата выполнения привязки счёта по ранее зарегистрированному УПК",
+        "description": "Получить результат выполнения привязки счёта по ранее зарегистрированному Универсальному платёжному коду",
         "operationId": "getTokenizationResult",
         "parameters": [
           {
@@ -3342,7 +4088,7 @@
           {
             "name": "qrcId",
             "in": "path",
-            "description": "Идентификатор зарегистрированной Функциональной ссылки СБП",
+            "description": "Идентификатор зарегистрированного УПК",
             "required": true,
             "schema": {
               "pattern": "^[0-9a-zA-Z-]{1,64}$",
@@ -3571,10 +4317,10 @@
     "/{apiVersion}/sites/{siteUid}/sbp/qrc/{qrcId}/payments": {
       "get": {
         "tags": [
-          "Функциональные ссылки СБП"
+          "Универсальные платёжные коды"
         ],
-        "summary": "Запрос платежей по ранее зарегистрированной Функциональной ссылке СБП",
-        "description": "Получить платежи по ранее зарегистрированной Функциональной ссылке СБП",
+        "summary": "Запрос платежей по ранее зарегистрированному УПК",
+        "description": "Получить платежи по ранее зарегистрированному Универсальному платёжному коду",
         "operationId": "getPaymentsByQrcId",
         "parameters": [
           {
@@ -3590,7 +4336,7 @@
           {
             "name": "qrcId",
             "in": "path",
-            "description": "Идентификатор зарегистрированной Функциональной ссылки СБП",
+            "description": "Идентификатор зарегистрированного УПК",
             "required": true,
             "schema": {
               "pattern": "^[0-9a-zA-Z-]{1,64}$",
@@ -3843,10 +4589,10 @@
     "/{apiVersion}/sites/{siteUid}/sbp/qrc/cash-register-qrc/{qrcId}/status": {
       "get": {
         "tags": [
-          "Кассовые ссылки СБП"
+          "Кассовые Универсальные платёжные коды"
         ],
-        "summary": "Запрос статуса Кассовой ссылки СБП",
-        "description": "Получить статус Кассовой ссылки СБП",
+        "summary": "Запрос статуса Кассового УПК",
+        "description": "Получить статус Кассового Универсальный платёжный код",
         "operationId": "getCashRegisterQrCodeStatus",
         "parameters": [
           {
@@ -3862,7 +4608,7 @@
           {
             "name": "qrcId",
             "in": "path",
-            "description": "Идентификатор зарегистрированной Кассовой ссылки СБП",
+            "description": "Идентификатор зарегистрированного Кассового УПК",
             "required": true,
             "schema": {
               "pattern": "^[0-9a-zA-Z-]{1,64}$",
@@ -4091,10 +4837,10 @@
     "/{apiVersion}/sites/{siteUid}/sbp/qrc/cash-register-qrc/{qrcId}/activations/{activationUid}/payment": {
       "get": {
         "tags": [
-          "Кассовые ссылки СБП"
+          "Кассовые Универсальные платёжные коды"
         ],
-        "summary": "Запрос платежа по активации Кассовой ссылки СБП",
-        "description": "Получить платёж по активации Кассовой ссылки СБП",
+        "summary": "Запрос платежа по активации Кассового УПК",
+        "description": "Получить платёж по активации Кассового Универсального платёжного кода",
         "operationId": "getPaymentByCashRegisterQrcActivationUid",
         "parameters": [
           {
@@ -4110,7 +4856,7 @@
           {
             "name": "qrcId",
             "in": "path",
-            "description": "Идентификатор зарегистрированной Кассовой ссылки СБП",
+            "description": "Идентификатор зарегистрированного Кассового УПК",
             "required": true,
             "schema": {
               "pattern": "^[0-9a-zA-Z-]{1,64}$",
@@ -4120,7 +4866,7 @@
           {
             "name": "activationUid",
             "in": "path",
-            "description": "Уникальный идентификатор активации Кассовой ссылки СБП в информационной системе ТСП",
+            "description": "Уникальный идентификатор активации Кассового УПК в информационной системе ТСП",
             "required": true,
             "schema": {
               "pattern": "^[0-9a-zA-Z-]{1,64}$",
@@ -5309,10 +6055,10 @@
     "/{apiVersion}/sites/{siteUid}/sbp/qrc/cash-register-qrc/{qrcId}/activations/current": {
       "delete": {
         "tags": [
-          "Кассовые ссылки СБП"
+          "Кассовые Универсальные платёжные коды"
         ],
-        "summary": "Деактивация Кассовой ссылки СБП",
-        "description": "Деактивировать Кассовую ссылку СБП",
+        "summary": "Деактивация Кассового УПК",
+        "description": "Деактивировать Кассовый Универсальный платёжный код",
         "operationId": "deactivateCashRegisterQrCode",
         "parameters": [
           {
@@ -5328,7 +6074,7 @@
           {
             "name": "qrcId",
             "in": "path",
-            "description": "Идентификатор зарегистрированной Кассовой ссылки СБП",
+            "description": "Идентификатор зарегистрированного Кассового УПК",
             "required": true,
             "schema": {
               "pattern": "^[0-9a-zA-Z-]{1,64}$",
@@ -5677,6 +6423,66 @@
         },
         "description": "Сумма возвращённых чарджбеков"
       },
+      "RefundRetryFormResponseDTO": {
+        "required": [
+          "expirationDateTime",
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Ссылка на форму сбора реквизитов для повтора возврата",
+            "example": "https://oplata.securepaytb.ru/refund/0195e2b1-8c4d-7a1e-9f3b-2c5d8e7a1b4f"
+          },
+          "expirationDateTime": {
+            "type": "string",
+            "description": "Дата и время, до которых ссылка активна, в формате ISO8601",
+            "example": "2025-01-01T01:23:45+03:00"
+          }
+        }
+      },
+      "RefundRetryFormResponseDTOWrapped": {
+        "required": [
+          "Data",
+          "Links",
+          "Meta"
+        ],
+        "type": "object",
+        "properties": {
+          "Data": {
+            "$ref": "#/components/schemas/RefundRetryFormResponseDTO"
+          },
+          "Links": {
+            "required": [
+              "self"
+            ],
+            "type": "object",
+            "properties": {
+              "self": {
+                "maxLength": 2083,
+                "minLength": 1,
+                "pattern": "^https?://[-a-zA-Z0-9¡-￿+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9¡-￿+&@#/%=~_|]",
+                "type": "string",
+                "example": "https://enter.tochka.com/uapi/pay"
+              }
+            },
+            "description": "Links"
+          },
+          "Meta": {
+            "required": [
+              "totalPages"
+            ],
+            "type": "object",
+            "properties": {
+              "totalPages": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          }
+        }
+      },
       "AddressDTO": {
         "type": "object",
         "properties": {
@@ -5719,7 +6525,7 @@
         "properties": {
           "qrcType": {
             "type": "string",
-            "description": "Тип функциональной ссылки СБП"
+            "description": "Тип Универсального платёжного кода"
           },
           "metadata": {
             "maxLength": 2048,
@@ -5750,7 +6556,7 @@
           "merchantQrcId": {
             "pattern": "^[0-9a-zA-Z-]{1,64}$",
             "type": "string",
-            "description": "Уникальный идентификатор Функциональной ссылки СБП в информационной системе ТСП"
+            "description": "Уникальный идентификатор Универсального платёжного кода в информационной системе ТСП"
           }
         },
         "discriminator": {
@@ -5811,6 +6617,12 @@
           },
           "address": {
             "$ref": "#/components/schemas/AddressDTO"
+          },
+          "fingerprint": {
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+            "type": "string",
+            "description": "Идентификатор fingerprint",
+            "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
           }
         }
       },
@@ -5823,7 +6635,7 @@
           "qrcType"
         ],
         "type": "object",
-        "description": "Одноразовая Платёжная ссылка СБП",
+        "description": "Одноразовый платёжный код",
         "allOf": [
           {
             "$ref": "#/components/schemas/CreateQRCodeRequestDTO"
@@ -5852,8 +6664,32 @@
                 "maximum": 129600,
                 "minimum": 1,
                 "type": "integer",
-                "description": "Срок жизни Функциональной ссылки СБП в минутах",
+                "description": "Срок жизни УПК в минутах",
                 "format": "int32"
+              },
+              "paymentMethods": {
+                "type": "array",
+                "description": "Платёжные методы, которыми можно оплатить код. Метод оплаты доступен плательщику только если указан в paymentMethods.",
+                "items": {
+                  "type": "string",
+                  "description": "Платёжные методы, которыми можно оплатить код. Метод оплаты доступен плательщику только если указан в paymentMethods.",
+                  "default": "[\"SBP\"]",
+                  "enum": [
+                    "SBP",
+                    "DIGITAL_RUBLE"
+                  ]
+                },
+                "default": [
+                  "SBP"
+                ]
+              },
+              "paymentPageUrl": {
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^https?://[-a-zA-Z0-9¡-￿+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9¡-￿+&@#/%=~_|]",
+                "type": "string",
+                "description": "Ссылка для перенаправления Покупателя на Платёжную страницу Участника Сервиса УПК",
+                "example": "https://example.ru"
               },
               "metadata": {
                 "maxLength": 2048,
@@ -5878,7 +6714,7 @@
               },
               "qrcType": {
                 "type": "string",
-                "description": "Тип функциональной ссылки СБП",
+                "description": "Тип Универсального платёжного кода",
                 "enum": [
                   "DYNAMIC"
                 ]
@@ -5925,7 +6761,7 @@
           "qrcType"
         ],
         "type": "object",
-        "description": "Многоразовая Платёжная ссылка СБП",
+        "description": "Многоразовый платёжный код",
         "allOf": [
           {
             "$ref": "#/components/schemas/CreateQRCodeRequestDTO"
@@ -5943,6 +6779,30 @@
                 "type": "string",
                 "description": "Назначение платежа",
                 "example": "Капучино 300 мл 1 шт."
+              },
+              "paymentMethods": {
+                "type": "array",
+                "description": "Платёжные методы, которыми можно оплатить код. Метод оплаты доступен плательщику только если указан в paymentMethods.",
+                "items": {
+                  "type": "string",
+                  "description": "Платёжные методы, которыми можно оплатить код. Метод оплаты доступен плательщику только если указан в paymentMethods.",
+                  "default": "[\"SBP\"]",
+                  "enum": [
+                    "SBP",
+                    "DIGITAL_RUBLE"
+                  ]
+                },
+                "default": [
+                  "SBP"
+                ]
+              },
+              "paymentPageUrl": {
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^https?://[-a-zA-Z0-9¡-￿+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9¡-￿+&@#/%=~_|]",
+                "type": "string",
+                "description": "Ссылка для перенаправления Покупателя на Платёжную страницу Участника Сервиса УПК",
+                "example": "https://example.ru"
               },
               "metadata": {
                 "maxLength": 2048,
@@ -5967,7 +6827,7 @@
               },
               "qrcType": {
                 "type": "string",
-                "description": "Тип функциональной ссылки СБП",
+                "description": "Тип Универсального платёжного кода",
                 "enum": [
                   "STATIC"
                 ]
@@ -5982,7 +6842,7 @@
           "qrcType"
         ],
         "type": "object",
-        "description": "Информационная ссылка СБП для привязки счёта Плательщика",
+        "description": "Информационная ссылка для привязки счёта Плательщика",
         "allOf": [
           {
             "$ref": "#/components/schemas/CreateQRCodeRequestDTO"
@@ -6000,7 +6860,7 @@
                 "maximum": 129600,
                 "minimum": 1,
                 "type": "integer",
-                "description": "Срок жизни Функциональной ссылки СБП в минутах",
+                "description": "Срок жизни УПК в минутах",
                 "format": "int32"
               },
               "metadata": {
@@ -6026,7 +6886,7 @@
               },
               "qrcType": {
                 "type": "string",
-                "description": "Тип функциональной ссылки СБП",
+                "description": "Тип Универсального платёжного кода",
                 "enum": [
                   "TOKEN"
                 ]
@@ -6052,7 +6912,7 @@
             "$ref": "#/components/schemas/TokenizationServiceDetailsDTO"
           }
         },
-        "description": "Параметры для привязки счёта Плательщика"
+        "description": "Параметры для привязки счёта Плательщика\n\n + \n:::warning Привязка счёта и оплата по привязанному счёту доступны только для СБП :::"
       },
       "TokenizationServiceDetailsDTO": {
         "required": [
@@ -6132,18 +6992,18 @@
           "qrcId": {
             "maxLength": 32,
             "type": "string",
-            "description": "Идентификатор зарегистрированной Функциональной ссылки СБП",
+            "description": "Идентификатор зарегистрированного УПК",
             "example": "AS1000670LSS7DN18SJQDNP4B05KLJL2"
           },
           "merchantQrcId": {
             "pattern": "^[0-9a-zA-Z-]{1,64}$",
             "type": "string",
-            "description": "Уникальный идентификатор Функциональной ссылки СБП в информационной системе ТСП"
+            "description": "Уникальный идентификатор Универсального платёжного кода в информационной системе ТСП"
           },
           "payload": {
             "maxLength": 999,
             "type": "string",
-            "description": "Payload зарегистрированной Функциональной ссылки СБП",
+            "description": "Payload зарегистрированного УПК",
             "example": "https://qr.nspk.ru/AS1000670LSS7DN18SJQDNP4B05KLJL2?type=01&bank=100000000001&sum=10000&cur=RUB&crc=C08B"
           },
           "image": {
@@ -6199,11 +7059,27 @@
       "CreateCashRegisterQrCodeRequest": {
         "type": "object",
         "properties": {
+          "paymentMethods": {
+            "type": "array",
+            "description": "Платёжные методы, которыми можно оплатить код. Метод оплаты доступен плательщику только если указан в paymentMethods.",
+            "items": {
+              "type": "string",
+              "description": "Платёжные методы, которыми можно оплатить код. Метод оплаты доступен плательщику только если указан в paymentMethods.",
+              "default": "[\"SBP\"]",
+              "enum": [
+                "SBP",
+                "DIGITAL_RUBLE"
+              ]
+            },
+            "default": [
+              "SBP"
+            ]
+          },
           "qrcId": {
             "maxLength": 32,
             "minLength": 32,
             "type": "string",
-            "description": "Предварительно зарезервированный идентификатор многоразовой Платёжной ссылки СБП",
+            "description": "Предварительно зарезервированный идентификатор многоразового УПК",
             "example": "AS1000670LSS7DN18SJQDNP4B05KLJL2"
           },
           "imageParams": {
@@ -6227,10 +7103,18 @@
           "merchantQrcId": {
             "pattern": "^[0-9a-zA-Z-]{1,64}$",
             "type": "string",
-            "description": "Уникальный идентификатор Функциональной ссылки СБП в информационной системе ТСП"
+            "description": "Уникальный идентификатор Универсального платёжного кода в информационной системе ТСП"
+          },
+          "paymentPageUrl": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "pattern": "^https?://[-a-zA-Z0-9¡-￿+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9¡-￿+&@#/%=~_|]",
+            "type": "string",
+            "description": "Ссылка для перенаправления Покупателя на Платёжную страницу Участника Сервиса УПК",
+            "example": "https://example.ru"
           }
         },
-        "description": "Кассовая ссылка СБП"
+        "description": "Кассовый УПК"
       },
       "WrappedRequestDTOCreateCashRegisterQrCodeRequest": {
         "required": [
@@ -6253,7 +7137,7 @@
           "activationUid": {
             "pattern": "^[0-9a-zA-Z-]{1,64}$",
             "type": "string",
-            "description": "Уникальный идентификатор активации Кассовой ссылки СБП в информационной системе ТСП",
+            "description": "Уникальный идентификатор активации Кассового УПК в информационной системе ТСП",
             "example": "83746290376583029856473829018735"
           },
           "amount": {
@@ -6289,7 +7173,7 @@
             "example": "https://test.tochkapay.com/notification"
           }
         },
-        "description": "Параметры активации Кассовой ссылки СБП"
+        "description": "Параметры активации Кассового УПК"
       },
       "WrappedRequestDTOActivateCashRegisterQrCodeRequest": {
         "required": [
@@ -6311,7 +7195,7 @@
           "activationUid": {
             "pattern": "^[0-9a-zA-Z-]{1,64}$",
             "type": "string",
-            "description": "Уникальный идентификатор активации Кассовой ссылки СБП в информационной системе ТСП",
+            "description": "Уникальный идентификатор активации Кассового УПК в информационной системе ТСП",
             "example": "83746290376583029856473829018735"
           }
         }
@@ -6930,6 +7814,21 @@
           }
         ]
       },
+      "DeclineRecommendedActionDTO": {
+        "required": [
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          }
+        },
+        "description": "Рекомендуемое действие по отклонённой операции",
+        "discriminator": {
+          "propertyName": "type"
+        }
+      },
       "Declined": {
         "required": [
           "changedDateTime",
@@ -6983,6 +7882,106 @@
                 "type": "string",
                 "description": "Код ответа платёжной системы",
                 "example": "13"
+              },
+              "recommendation": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/RetryWithAnotherMethodDTO"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "DigitalRubleCashRegisterQrcPaymentMethodResult": {
+        "required": [
+          "activationUid",
+          "qrcId",
+          "type"
+        ],
+        "type": "object",
+        "description": "DIGITAL_RUBLE_CASH_REGISTER_QRC",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PaymentMethodResultDTO"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "description": "Тип платёжного метода",
+                "enum": [
+                  "DIGITAL_RUBLE_CASH_REGISTER_QRC"
+                ]
+              },
+              "qrcId": {
+                "maxLength": 32,
+                "type": "string",
+                "description": "Идентификатор УПК",
+                "example": "AS1000670LSS7DN18SJQDNP4B05KLJL2"
+              },
+              "activationUid": {
+                "pattern": "^[0-9a-zA-Z-]{1,64}$",
+                "type": "string",
+                "description": "Уникальный идентификатор активации Кассовой ссылки УПК в информационной системе ТСП",
+                "example": "83746290376583029856473829018735"
+              },
+              "operationId": {
+                "maxLength": 32,
+                "minLength": 32,
+                "type": "string",
+                "description": "Идентификатор операции в системе Цифрового Рубля",
+                "example": "A12930013057370100000546241820D7"
+              },
+              "merchantQrcId": {
+                "pattern": "^[0-9a-zA-Z-]{1,64}$",
+                "type": "string",
+                "description": "Уникальный идентификатор УПК в информационной системе ТСП"
+              }
+            }
+          }
+        ]
+      },
+      "DigitalRublePaymentMethodResult": {
+        "required": [
+          "qrcId",
+          "type"
+        ],
+        "type": "object",
+        "description": "DIGITAL_RUBLE",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PaymentMethodResultDTO"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "description": "Тип платёжного метода",
+                "enum": [
+                  "DIGITAL_RUBLE"
+                ]
+              },
+              "qrcId": {
+                "maxLength": 32,
+                "type": "string",
+                "description": "Идентификатор УПК",
+                "example": "AS1000670LSS7DN18SJQDNP4B05KLJL2"
+              },
+              "operationId": {
+                "maxLength": 32,
+                "minLength": 32,
+                "type": "string",
+                "description": "Идентификатор операции в системе Цифрового Рубля",
+                "example": "A12930013057370100000546241820D7"
+              },
+              "merchantQrcId": {
+                "pattern": "^[0-9a-zA-Z-]{1,64}$",
+                "type": "string",
+                "description": "Уникальный идентификатор УПК в информационной системе ТСП"
               }
             }
           }
@@ -7020,7 +8019,7 @@
           "paymentUid": {
             "pattern": "^[0-9a-zA-Z-]{1,64}$",
             "type": "string",
-            "description": "Уникальный идентификатор платежа в информационной системе ТСП\n\n + \n:::warning При оплате через динамическую или статическую платёжную ссылку СБП идентификатор создаётся на стороне Точки:::",
+            "description": "Уникальный идентификатор платежа в информационной системе ТСП\n\n + \n:::warning При оплате через многоразовый или одноразовый УПК идентификатор создаётся на стороне Точки:::",
             "example": "977639EE70494C67"
           },
           "createdDateTime": {
@@ -7047,6 +8046,12 @@
             "oneOf": [
               {
                 "$ref": "#/components/schemas/CardPaymentMethodResult"
+              },
+              {
+                "$ref": "#/components/schemas/DigitalRubleCashRegisterQrcPaymentMethodResult"
+              },
+              {
+                "$ref": "#/components/schemas/DigitalRublePaymentMethodResult"
               },
               {
                 "$ref": "#/components/schemas/SBPCustomerPresentedQRPaymentMethodResult"
@@ -7191,6 +8196,29 @@
           "propertyName": "value"
         }
       },
+      "RetryWithAnotherMethodDTO": {
+        "required": [
+          "type"
+        ],
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DeclineRecommendedActionDTO"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "description": "Тип рекомендуемого действия по отклонённой операции",
+                "enum": [
+                  "RETRY_WITH_ANOTHER_METHOD"
+                ]
+              }
+            }
+          }
+        ]
+      },
       "SBPCustomerPresentedQRPaymentMethodResult": {
         "required": [
           "qrcId",
@@ -7208,7 +8236,7 @@
               "qrcId": {
                 "maxLength": 32,
                 "type": "string",
-                "description": "Идентификатор Функциональной ссылки СБП",
+                "description": "Идентификатор УПК",
                 "example": "AS1000670LSS7DN18SJQDNP4B05KLJL2"
               },
               "nspkTransactionId": {
@@ -7228,7 +8256,7 @@
               "merchantQrcId": {
                 "pattern": "^[0-9a-zA-Z-]{1,64}$",
                 "type": "string",
-                "description": "Уникальный идентификатор Функциональной ссылки СБП в информационной системе ТСП"
+                "description": "Уникальный идентификатор Универсального платёжного кода в информационной системе ТСП"
               }
             }
           }
@@ -7251,7 +8279,7 @@
               "qrcId": {
                 "maxLength": 32,
                 "type": "string",
-                "description": "Идентификатор Функциональной ссылки СБП",
+                "description": "Идентификатор УПК",
                 "example": "AS1000670LSS7DN18SJQDNP4B05KLJL2"
               },
               "nspkTransactionId": {
@@ -7279,7 +8307,7 @@
               "merchantQrcId": {
                 "pattern": "^[0-9a-zA-Z-]{1,64}$",
                 "type": "string",
-                "description": "Уникальный идентификатор Функциональной ссылки СБП в информационной системе ТСП"
+                "description": "Уникальный идентификатор Универсального платёжного кода в информационной системе ТСП"
               }
             }
           }
@@ -7302,7 +8330,7 @@
               "qrcId": {
                 "maxLength": 32,
                 "type": "string",
-                "description": "Идентификатор Функциональной ссылки СБП",
+                "description": "Идентификатор УПК",
                 "example": "AS1000670LSS7DN18SJQDNP4B05KLJL2"
               },
               "nspkTransactionId": {
@@ -7322,7 +8350,7 @@
               "merchantQrcId": {
                 "pattern": "^[0-9a-zA-Z-]{1,64}$",
                 "type": "string",
-                "description": "Уникальный идентификатор Функциональной ссылки СБП в информационной системе ТСП"
+                "description": "Уникальный идентификатор Универсального платёжного кода в информационной системе ТСП"
               }
             }
           }
@@ -7415,13 +8443,13 @@
               "qrcId": {
                 "maxLength": 32,
                 "type": "string",
-                "description": "Идентификатор Функциональной ссылки СБП",
+                "description": "Идентификатор УПК",
                 "example": "AS1000670LSS7DN18SJQDNP4B05KLJL2"
               },
               "activationUid": {
                 "pattern": "^[0-9a-zA-Z-]{1,64}$",
                 "type": "string",
-                "description": "Уникальный идентификатор активации Кассовой ссылки СБП в информационной системе ТСП",
+                "description": "Уникальный идентификатор активации Кассового УПК в информационной системе ТСП",
                 "example": "83746290376583029856473829018735"
               },
               "nspkTransactionId": {
@@ -7449,7 +8477,7 @@
               "merchantQrcId": {
                 "pattern": "^[0-9a-zA-Z-]{1,64}$",
                 "type": "string",
-                "description": "Уникальный идентификатор Функциональной ссылки СБП в информационной системе ТСП"
+                "description": "Уникальный идентификатор Универсального платёжного кода в информационной системе ТСП"
               }
             }
           }
@@ -7618,6 +8646,60 @@
           }
         ]
       },
+      "DigitalRubleCashRegisterQrcRefundMethodResultDto": {
+        "required": [
+          "type"
+        ],
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RefundMethodResultDTO"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "DIGITAL_RUBLE_CASH_REGISTER_QRC"
+                ]
+              },
+              "operationId": {
+                "type": "string",
+                "description": "Идентификатор операции в системе Цифрового Рубля",
+                "example": "A229210042070501000005268EEA632B"
+              }
+            }
+          }
+        ]
+      },
+      "DigitalRubleRefundMethodResultDTO": {
+        "required": [
+          "type"
+        ],
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RefundMethodResultDTO"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "DIGITAL_RUBLE"
+                ]
+              },
+              "operationId": {
+                "type": "string",
+                "description": "Идентификатор операции в системе Цифрового Рубля",
+                "example": "A229210042070501000005268EEA632B"
+              }
+            }
+          }
+        ]
+      },
       "RefundMethodResultDTO": {
         "required": [
           "type"
@@ -7691,6 +8773,12 @@
             "oneOf": [
               {
                 "$ref": "#/components/schemas/CardRefundMethodResultDTO"
+              },
+              {
+                "$ref": "#/components/schemas/DigitalRubleCashRegisterQrcRefundMethodResultDto"
+              },
+              {
+                "$ref": "#/components/schemas/DigitalRubleRefundMethodResultDTO"
               },
               {
                 "$ref": "#/components/schemas/SBPCustomerPresentedQRRefundMethodResultDTO"
@@ -7856,6 +8944,91 @@
             }
           }
         ]
+      },
+      "Card": {
+        "required": [
+          "cvv2",
+          "expirationDate",
+          "pan",
+          "type"
+        ],
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RefundMethodDTO"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "pan": {
+                "pattern": "^\\d{13,19}$",
+                "type": "string",
+                "description": "Номер банковской карты",
+                "example": "22279992308606"
+              },
+              "cvv2": {
+                "pattern": "^\\d{3}$",
+                "type": "string",
+                "description": "CVV2/CVC2 на банковской карте",
+                "example": "123"
+              },
+              "expirationDate": {
+                "pattern": "(?:0?[1-9]|1[0-2])/[0-9]{2}",
+                "type": "string",
+                "description": "Срок действия банковской карты",
+                "example": "12/28"
+              },
+              "type": {
+                "type": "string",
+                "description": "Тип способа возврата средств",
+                "enum": [
+                  "CARD"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "RefundMethodDTO": {
+        "required": [
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          }
+        },
+        "description": "Способ возврата средств",
+        "discriminator": {
+          "propertyName": "type"
+        }
+      },
+      "RefundRetryRequestDTO": {
+        "required": [
+          "refundMethod"
+        ],
+        "type": "object",
+        "properties": {
+          "refundMethod": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Card"
+              }
+            ]
+          }
+        }
+      },
+      "WrappedRequestDTORefundRetryRequestDTO": {
+        "required": [
+          "Data"
+        ],
+        "type": "object",
+        "properties": {
+          "Data": {
+            "$ref": "#/components/schemas/RefundRetryRequestDTO"
+          }
+        }
       },
       "CompleteRequestDTO": {
         "required": [
@@ -8906,7 +10079,7 @@
                 "maxLength": 32,
                 "minLength": 0,
                 "type": "string",
-                "description": "Идентификатор Функциональной ссылки СБП",
+                "description": "Идентификатор УПК",
                 "example": "AS1000670LSS7DN18SJQDNP4B05KLJL2"
               },
               "metadata": {
@@ -8956,7 +10129,7 @@
                 "maxLength": 32,
                 "minLength": 0,
                 "type": "string",
-                "description": "Идентификатор Функциональной ссылки СБП",
+                "description": "Идентификатор УПК",
                 "example": "AS1000670LSS7DN18SJQDNP4B05KLJL2"
               },
               "metadata": {
@@ -8985,11 +10158,6 @@
         ],
         "type": "object",
         "properties": {
-          "metadata": {
-            "type": "string",
-            "description": "Строка с json, содержащим дополнительные поля с произвольной информацией.\n Пример формата: `\"{\\\"property1\\\": \\\"string\\\"}\"`",
-            "example": "{\"key1\":\"value1\",\"key2\":\"value2\"}"
-          },
           "status": {
             "type": "string",
             "description": "Статус привязки счёта",
@@ -8998,12 +10166,17 @@
           "merchantQrcId": {
             "pattern": "^[0-9a-zA-Z-]{1,64}$",
             "type": "string",
-            "description": "Уникальный идентификатор Функциональной ссылки СБП в информационной системе ТСП"
+            "description": "Уникальный идентификатор Универсального платёжного кода в информационной системе ТСП"
+          },
+          "metadata": {
+            "type": "string",
+            "description": "Строка с json, содержащим дополнительные поля с произвольной информацией.\n Пример формата: `\"{\\\"property1\\\": \\\"string\\\"}\"`",
+            "example": "{\"key1\":\"value1\",\"key2\":\"value2\"}"
           },
           "qrcId": {
             "maxLength": 32,
             "type": "string",
-            "description": "Идентификатор Функциональной ссылки СБП",
+            "description": "Идентификатор УПК",
             "example": "AS1000670LSS7DN18SJQDNP4B05KLJL2"
           }
         },
@@ -9339,7 +10512,7 @@
         "properties": {
           "status": {
             "type": "string",
-            "description": "Статус Кассовой ссылки СБП",
+            "description": "Статус Кассового УПК",
             "enum": [
               "INACTIVATED",
               "WAITING_PAYMENT",
@@ -9349,7 +10522,7 @@
           "activationUid": {
             "pattern": "^[0-9a-zA-Z-]{1,64}$",
             "type": "string",
-            "description": "Уникальный идентификатор активации Кассовой ссылки СБП в информационной системе ТСП",
+            "description": "Уникальный идентификатор активации Кассового УПК в информационной системе ТСП",
             "example": "83746290376583029856473829018735"
           }
         }
@@ -9658,8 +10831,8 @@
         "Завершение аутентификации",
         "Подтверждение",
         "Возвраты",
-        "Функциональные ссылки СБП",
-        "Кассовые ссылки СБП",
+        "Универсальные платёжные коды",
+        "Кассовые Универсальные платёжные коды",
         "Платёжные токены",
         "Вебхуки"
       ]
