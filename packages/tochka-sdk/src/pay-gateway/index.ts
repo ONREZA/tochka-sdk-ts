@@ -4,9 +4,9 @@
  * Отличия от основного API Точки:
  *   - Отдельный хост (выдаётся при онбординге, требуется PCI DSS AOC)
  *   - JWT-токен в Authorization
- *   - RSA-SHA256 подпись тела запроса в заголовке `Signature` для 3 эндпоинтов:
+ *   - RSA-SHA256 подпись тела запроса в заголовке `Signature`:
  *     создание платежа (`.../payments`), подтверждение (`.../captures`),
- *     возврат (`.../refunds`)
+ *     возврат (`.../refunds`) и повтор возврата (`.../refunds/{id}/retry`)
  *
  * @see docs/tochka/scraped/request-signature-and-authorization.md
  * @see docs/tochka/scraped/webhooks.md
@@ -56,6 +56,8 @@ export {
 	type RefundList,
 	type RefundRequest,
 	type RefundResponse,
+	type RefundRetryFormResponse,
+	type RefundRetryRequest,
 	type SavedCardPaymentMethod,
 	type SbpCustomerPresentedQrPaymentMethod,
 	type SbpNspkTokenPaymentMethod,

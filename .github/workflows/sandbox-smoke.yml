@@ -5,6 +5,9 @@ on:
     - cron: "0 5 * * 1"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: sandbox-smoke
   cancel-in-progress: false
@@ -16,15 +19,18 @@ jobs:
       TOCHKA_SMOKE: 1
       TOCHKA_MODE: sandbox
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.3.14
+          bun-version: 1.4.2
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
 
       - run: bun install --frozen-lockfile
-      - run: bun test packages/tochka-sdk/test/sandbox
+      - name: Run sandbox smoke tests
+        env:
+          NODE_EXTRA_CA_CERTS: ${{ github.workspace }}/tools/certs/russian-trusted-root-ca.pem
+        run: bun test packages/tochka-sdk/test/sandbox

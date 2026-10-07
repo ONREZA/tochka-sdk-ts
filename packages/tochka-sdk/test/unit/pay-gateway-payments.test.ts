@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { TochkaUnknownOutcomeError } from "../../src/errors/index.js";
 import { PayGatewayClient } from "../../src/pay-gateway/index.js";
 
 async function pkcs8Pem(): Promise<string> {
@@ -47,6 +48,163 @@ function makeClient(captured: Captured, privateKey?: string) {
 }
 
 describe("PayGatewayPaymentsModule paths", () => {
+	test("refund recovery wrappers: encoded paths, Data, RSA signature and unwrapped responses", async () => {
+		const keypair = (await crypto.subtle.generateKey(
+			{
+				name: "RSASSA-PKCS1-v1_5",
+				modulusLength: 2048,
+				publicExponent: new Uint8Array([1, 0, 1]),
+				hash: "SHA-256",
+			},
+			true,
+			["sign", "verify"],
+		)) as CryptoKeyPair;
+		const requests: Captured[] = [];
+		const refund = {
+			refundUid: "r1",
+			metadata: "{}",
+			amount: { amount: "100.00", currency: "RUB" },
+			createdDateTime: "2026-10-07T12:00:00Z",
+			status: { value: "COMPLETED" as const, changedDateTime: "2026-10-07T12:00:00Z" },
+		};
+		const form = {
+			url: "https://pay.example/refund-form",
+			expirationDateTime: "2026-10-08T12:00:00Z",
+		};
+		const responses = [refund, form, {}];
+		const pg = new PayGatewayClient({
+			token: "jwt-token",
+			baseUrl: "https://pay.example",
+			privateKey: keypair.privateKey,
+			fetch: (async (url: string, init: RequestInit) => {
+				requests.push({
+					url,
+					method: init.method,
+					headers: init.headers as Record<string, string>,
+					body: init.body as string | undefined,
+				});
+				return Response.json({
+					Data: responses.shift(),
+					Links: { self: url },
+					Meta: { totalPages: 0 },
+				});
+			}) as unknown as typeof fetch,
+		});
+		const body = {
+			refundMethod: {
+				type: "CARD" as const,
+				pan: "4111111111111111",
+				cvv2: "123",
+				expirationDate: "12/28",
+			},
+		};
+		expect(await pg.payments.retryRefund("site/1", "payment/1", "refund/1", body)).toEqual(refund);
+		expect(await pg.payments.createRefundRetryForm("site/1", "payment/1", "refund/1")).toEqual(
+			form,
+		);
+		expect(
+			await pg.payments.deleteRefundRetryForm("site/1", "payment/1", "refund/1"),
+		).toBeUndefined();
+		const basePath =
+			"https://pay.example/uapi/pay/v1.0/sites/site%2F1/payments/payment%2F1/refunds/refund%2F1";
+		expect(requests.map(({ method, url }) => `${method} ${url}`)).toEqual([
+			`POST ${basePath}/retry`,
+			`PUT ${basePath}/retry-form`,
+			`DELETE ${basePath}/retry-form`,
+		]);
+		const retry = requests[0];
+		expect(retry?.body).toBe(JSON.stringify({ Data: body }));
+		const signature = retry?.headers?.Signature;
+		expect(signature).toBeDefined();
+		expect(
+			await crypto.subtle.verify(
+				"RSASSA-PKCS1-v1_5",
+				keypair.publicKey,
+				Uint8Array.from(atob(signature ?? ""), (char) => char.charCodeAt(0)),
+				new TextEncoder().encode(retry?.body),
+			),
+		).toBe(true);
+		for (const request of requests.slice(1)) {
+			expect(request.body).toBeUndefined();
+			expect(request.headers?.Signature).toBeUndefined();
+		}
+	});
+
+	test("refund recovery POST/PUT/DELETE не повторяют 503 по умолчанию", async () => {
+		const pg = new PayGatewayClient({
+			token: "jwt-token",
+			baseUrl: "https://pay.example",
+			privateKey: await pkcs8Pem(),
+			fetch: (async () => {
+				calls += 1;
+				return new Response("{}", { status: 503 });
+			}) as unknown as typeof fetch,
+		});
+		let calls = 0;
+		for (const operation of [
+			() =>
+				pg.payments.retryRefund("s", "p", "r", {
+					refundMethod: {
+						type: "CARD",
+						pan: "4111111111111111",
+						cvv2: "123",
+						expirationDate: "12/28",
+					},
+				}),
+			() => pg.payments.createRefundRetryForm("s", "p", "r"),
+			() => pg.payments.deleteRefundRetryForm("s", "p", "r"),
+		]) {
+			calls = 0;
+			await expect(operation()).rejects.toMatchObject({ status: 503 });
+			expect(calls).toBe(1);
+		}
+	});
+
+	test("refund retry требует privateKey до отправки", async () => {
+		const cap: Captured = {};
+		const pg = makeClient(cap);
+		await expect(
+			pg.request("POST", "/uapi/pay/v1.0/sites/s/payments/p/refunds/r/retry", {
+				Data: {
+					refundMethod: {
+						type: "CARD",
+						pan: "4111111111111111",
+						cvv2: "123",
+						expirationDate: "12/28",
+					},
+				},
+			}),
+		).rejects.toThrow(/requires signed body/);
+		expect(cap.url).toBeUndefined();
+	});
+
+	test("refund retry не повторяется после сетевой ошибки даже с opt-in POST", async () => {
+		let calls = 0;
+		const pg = new PayGatewayClient({
+			token: "jwt-token",
+			baseUrl: "https://pay.example",
+			privateKey: await pkcs8Pem(),
+			retry: { retryableMethods: new Set(["POST"]), initialDelayMs: 0, maxDelayMs: 0 },
+			fetch: (async () => {
+				calls += 1;
+				throw new TypeError("connection reset");
+			}) as unknown as typeof fetch,
+		});
+		await expect(
+			pg.request("POST", "/uapi/pay/v1.0/sites/s/payments/p/refunds/r/retry", {
+				Data: {
+					refundMethod: {
+						type: "CARD",
+						pan: "4111111111111111",
+						cvv2: "123",
+						expirationDate: "12/28",
+					},
+				},
+			}),
+		).rejects.toBeInstanceOf(TochkaUnknownOutcomeError);
+		expect(calls).toBe(1);
+	});
+
 	test("create → POST .../sites/{siteUid}/payments, тело в Data, с Signature", async () => {
 		const cap: Captured = {};
 		const pg = makeClient(cap, await pkcs8Pem());

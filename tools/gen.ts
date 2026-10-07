@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import openapiTS, { astToString } from "openapi-typescript";
-import { readOpenApi } from "./openapi.js";
+import { normalizePayGatewaySpec, readOpenApi } from "./openapi.js";
 import { SPEC_TARGETS, type SpecTarget } from "./specs.js";
 
 const OUT_DIR = resolve(import.meta.dir, "..", "packages", "tochka-sdk", "src", "_generated");
@@ -17,11 +17,13 @@ function header(target: SpecTarget): string {
 `;
 }
 
-async function generateTypes(target: SpecTarget): Promise<void> {
+async function generateTypes(target: SpecTarget): Promise<{ path: string; content: string }> {
 	console.log(`→ Generating ${target.label} types from ${target.path}`);
 	const source =
 		target.id === "pay-gateway"
-			? (stripDiscriminators(await readOpenApi(target.path)) as Parameters<typeof openapiTS>[0])
+			? (normalizePayGatewaySpec(await readOpenApi(target.path)) as unknown as Parameters<
+					typeof openapiTS
+				>[0])
 			: pathToFileURL(target.path);
 	const ast = await openapiTS(source, {
 		alphabetize: true,
@@ -30,39 +32,17 @@ async function generateTypes(target: SpecTarget): Promise<void> {
 		immutable: false,
 	});
 	const body = astToString(ast);
-	await mkdir(dirname(target.generatedPath), { recursive: true });
-	await writeFile(target.generatedPath, header(target) + body);
-	console.log(`✓ Wrote ${target.generatedPath}`);
-}
-
-/**
- * Pay Gateway задаёт discriminator на базовых схемах, но не публикует mapping,
- * а значения поля (`CARD`, `SBP_TOKEN`) не совпадают с именами схем. Автовывод
- * mapping по имени создаёт невозможные intersection-типы. Явные enum в дочерних
- * схемах уже сохраняют дискриминацию, поэтому для генерации убираем только
- * некорректную подсказку discriminator, не меняя саму сохранённую спецификацию.
- */
-function stripDiscriminators(value: unknown): unknown {
-	if (Array.isArray(value)) return value.map(stripDiscriminators);
-	if (!value || typeof value !== "object") return value;
-	return Object.fromEntries(
-		Object.entries(value as Record<string, unknown>)
-			.filter(([key]) => key !== "discriminator")
-			.map(([key, child]) => [key, stripDiscriminators(child)]),
-	);
+	return { path: target.generatedPath, content: header(target) + body };
 }
 
 async function main() {
-	await mkdir(OUT_DIR, { recursive: true });
-	await Promise.all(SPEC_TARGETS.map(generateTypes));
-
 	const mainTarget = SPEC_TARGETS.find((target) => target.id === "tochka");
 	if (!mainTarget) throw new Error("Missing Tochka API spec target");
 	const spec = await readOpenApi(mainTarget.path);
 
 	const prodServer = spec.servers.find((server) => /uapi/.test(server.url))?.url;
 	const sandboxServer = spec.servers.find((server) => /sandbox/.test(server.url))?.url;
-	if (!prodServer || !sandboxServer) {
+	if (!prodServer || !sandboxServer || prodServer === sandboxServer) {
 		throw new Error("OpenAPI must declare distinct production and sandbox server URLs");
 	}
 
@@ -72,8 +52,15 @@ export const TOCHKA_API_TITLE = ${JSON.stringify(spec.info.title)} as const;
 export const TOCHKA_BASE_URL_PROD = ${JSON.stringify(prodServer)} as const;
 export const TOCHKA_BASE_URL_SANDBOX = ${JSON.stringify(sandboxServer)} as const;
 `;
-	await writeFile(META_FILE, meta);
-	console.log(`✓ Wrote ${META_FILE} (API version: ${spec.info.version})`);
+	const outputs = [
+		...(await Promise.all(SPEC_TARGETS.map(generateTypes))),
+		{ path: META_FILE, content: meta },
+	];
+	for (const output of outputs) {
+		await mkdir(dirname(output.path), { recursive: true });
+		await writeFile(output.path, output.content);
+		console.log(`✓ Wrote ${output.path}`);
+	}
 }
 
 await main();

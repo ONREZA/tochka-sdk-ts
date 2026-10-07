@@ -26,7 +26,7 @@ export interface PayGatewayClientOptions {
 	baseUrl: string;
 	/**
 	 * Приватный ключ для RSA-SHA256 подписи тела запросов. Формат — PKCS#8 PEM
-	 * (или готовый `CryptoKey`). Обязателен для методов `create/capture/refund`.
+	 * (или готовый `CryptoKey`). Обязателен для `create/capture/refund/retryRefund`.
 	 */
 	privateKey?: PrivateKeyInput;
 	/** Дополнительные заголовки. */
@@ -44,7 +44,8 @@ export interface PayGatewayClientOptions {
 	 * HTTP-методы + пути (regexp или строка), для которых SDK обязан подписать тело.
 	 * По умолчанию — создание платежа (`POST .../payments`), подтверждение
 	 * (`POST .../payments/{id}/captures`) и возврат
-	 * (`POST .../payments/{id}/refunds`).
+	 * (`POST .../payments/{id}/refunds`) и повтор возврата
+	 * (`POST .../payments/{id}/refunds/{refundId}/retry`).
 	 */
 	signedPaths?: readonly (string | RegExp)[];
 }
@@ -53,6 +54,7 @@ export const DEFAULT_SIGNED_PATHS: readonly (string | RegExp)[] = Object.freeze(
 	/\/payments(?:\?|$)/,
 	/\/captures(?:\?|$)/,
 	/\/refunds(?:\?|$)/,
+	/\/refunds\/[^/?]+\/retry(?:\?|$)/,
 ]);
 
 export class PayGatewayClient {
@@ -150,7 +152,7 @@ export class PayGatewayClient {
 		}
 
 		const baseFetch = this.opts.fetch ?? fetch;
-		const response = await this.doRequest(baseFetch, url, {
+		const { response, text } = await this.doRequest(baseFetch, url, {
 			method: upperMethod,
 			headers,
 			...(serialized !== undefined ? { body: serialized } : {}),
@@ -159,17 +161,28 @@ export class PayGatewayClient {
 			retry: isSigned ? this.retryOptsForSigned : this.retryOpts,
 		});
 
-		const text = await response.text();
 		const trimmed = text.trim();
+		const ResponseError = isReadOnlyMethod(upperMethod)
+			? TochkaNetworkError
+			: TochkaUnknownOutcomeError;
 		let parsed: unknown;
 		if (trimmed === "") {
+			if (response.ok && upperMethod !== "HEAD" && ![204, 205].includes(response.status)) {
+				throw new ResponseError(
+					`PayGateway: empty JSON response from ${url} (HTTP ${response.status})`,
+					{
+						url,
+						method: upperMethod,
+					},
+				);
+			}
 			parsed = undefined;
 		} else if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
 			try {
 				parsed = JSON.parse(text);
 			} catch (err) {
 				if (response.ok) {
-					throw new TochkaNetworkError(
+					throw new ResponseError(
 						`PayGateway: malformed JSON response from ${url} (HTTP ${response.status}): ${(err as Error).message}`,
 						{ url, method: upperMethod, cause: err },
 					);
@@ -190,7 +203,7 @@ export class PayGatewayClient {
 			});
 		}
 		if (response.ok && parsed !== undefined && typeof parsed !== "object") {
-			throw new TochkaNetworkError(
+			throw new ResponseError(
 				`PayGateway: expected JSON object on 2xx, got ${typeof parsed} (status ${response.status})`,
 				{ url, method: upperMethod },
 			);
@@ -236,7 +249,7 @@ export class PayGatewayClient {
 			timeoutMs?: number;
 			retry: RetryOptions | null;
 		},
-	): Promise<Response> {
+	): Promise<{ response: Response; text: string }> {
 		if (opts.signal?.aborted) {
 			throw opts.signal.reason ?? new DOMException("Aborted", "AbortError");
 		}
@@ -263,6 +276,10 @@ export class PayGatewayClient {
 					...(opts.body !== undefined ? { body: opts.body } : {}),
 					signal: ac.signal,
 				});
+				if (!retry?.retryableStatuses.has(response.status) || attempt >= maxAttempts) {
+					return { response, text: await response.text() };
+				}
+				await response.body?.cancel().catch(() => undefined);
 			} catch (err) {
 				const aborted = isAbortError(err) || ac.signal.aborted || opts.signal?.aborted;
 				if (aborted || !retry || !retry.retryOnNetworkError || attempt >= maxAttempts) {
@@ -284,11 +301,8 @@ export class PayGatewayClient {
 				if (timer) clearTimeout(timer);
 				opts.signal?.removeEventListener("abort", forwardAbort);
 			}
-			if (!retry?.retryableStatuses.has(response.status) || attempt >= maxAttempts) {
-				return response;
-			}
+			if (!retry) throw new Error("PayGatewayClient.doRequest: unreachable");
 			const retryAfter = parseRetryAfter(response.headers.get("retry-after"), retry.maxDelayMs);
-			await response.body?.cancel().catch(() => undefined);
 			await sleep(retryAfter ?? computeBackoffMs(attempt, retry), opts.signal);
 		}
 		throw new Error("PayGatewayClient.doRequest: unreachable");

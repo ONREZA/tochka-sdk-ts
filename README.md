@@ -10,7 +10,8 @@
 - **5 режимов авторизации**: JWT-ключ, sandbox, bearer, OAuth 2.0 и собственный `AuthProvider`
 - **Верификация вебхуков** RS256 через `jose`, runtime-проверка payload, `customWebhook`, kid-matching и TTL-кэш JWKS
 - **Pay Gateway**: все исходящие методы официальной спецификации, RSA-SHA256
-  подпись через WebCrypto и защита от double-charge на ретраях
+  подпись через WebCrypto, цифровой рубль, повтор возврата с новыми реквизитами
+  и защита от double-charge на ретраях
 - **Транспорт**: безопасные retry только для read-only методов, таймауты, типизированные ошибки и telemetry hooks
 - **Автообновление спецификаций**: cron обновляет основной API и Pay Gateway,
   проверяет semantic diff и открывает PR
@@ -165,6 +166,10 @@ const operation = await pg.payments.create({
 });
 ```
 
+Для отклонённых возвратов доступны `pg.payments.createRefundRetryForm(...)`,
+`deleteRefundRetryForm(...)` и `retryRefund(...)`. Последний подписывает тело
+запроса и не повторяется автоматически после сетевой ошибки.
+
 ## Subpath exports
 
 Пакет использует subpath exports для tree-shaking:
@@ -208,6 +213,10 @@ try {
 По умолчанию SDK автоматически повторяет только `GET`, `HEAD` и `OPTIONS`.
 Расширять `retry.retryableMethods` для записывающих методов безопасно только при
 документированной server-side idempotency.
+
+`timeoutMs` охватывает получение заголовков и чтение тела ответа. При
+`parseAs: "stream"` таймаут действует до завершения или отмены потока.
+Обрыв ответа после записывающего запроса означает `TochkaUnknownOutcomeError`.
 
 ## Разработка
 

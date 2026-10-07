@@ -13,7 +13,7 @@ import { spawn } from "node:child_process";
  *   - `packages/tochka-sdk/src/_generated/*`
  */
 import { existsSync } from "node:fs";
-import { copyFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, readFile, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { buildOpenApiDiff } from "./diff.js";
 import type { OpenApiDocument } from "./openapi.js";
@@ -44,6 +44,7 @@ function run(cmd: string, args: string[]): Promise<{ stdout: string; stderr: str
 }
 
 async function main() {
+	await rm(REPORT_PATH, { force: true });
 	const fetched = await Promise.all(
 		SPEC_TARGETS.map(async (target) => {
 			console.log(`→ Fetching ${target.label}: ${target.url}`);
@@ -61,17 +62,6 @@ async function main() {
 		console.log("✓ No changes in specs");
 		process.exit(NO_CHANGES_EXIT_CODE);
 	}
-
-	for (const { target, next, current } of changed) {
-		const tmpPath = `${target.path}.new`;
-		await writeFile(tmpPath, serializeOpenApi(next));
-		if (current) await copyFile(target.path, target.previousPath);
-		await copyFile(tmpPath, target.path);
-		await rm(tmpPath, { force: true });
-	}
-
-	console.log("→ Regenerating types");
-	await run("bun", ["tools/gen.ts"]);
 
 	console.log("→ Building diff");
 	const report = [
@@ -93,7 +83,39 @@ async function main() {
 		"",
 		"<!-- sync-openapi-bot -->",
 	].join("\n");
-	await writeFile(REPORT_PATH, report);
+	const paths = [
+		...changed.flatMap(({ target }) => [target.path, target.previousPath]),
+		...SPEC_TARGETS.map((target) => target.generatedPath),
+		resolve(ROOT, "packages/tochka-sdk/src/_generated/meta.ts"),
+	];
+	const before = await Promise.all(
+		paths.map(async (path) => ({
+			path,
+			content: existsSync(path) ? await readFile(path) : null,
+		})),
+	);
+	try {
+		for (const { target, next, current } of changed) {
+			if (current) await copyFile(target.path, target.previousPath);
+			await writeFile(target.path, serializeOpenApi(next));
+		}
+		console.log("→ Regenerating types");
+		await run("bun", ["tools/gen.ts"]);
+		await writeFile(REPORT_PATH, report);
+	} catch (error) {
+		const restored = await Promise.allSettled(
+			before.map(({ path, content }) =>
+				content === null ? rm(path, { force: true }) : writeFile(path, content),
+			),
+		);
+		await rm(REPORT_PATH, { force: true });
+		const failures = restored.flatMap((result) =>
+			result.status === "rejected" ? [result.reason] : [],
+		);
+		if (failures.length)
+			throw new AggregateError([error, ...failures], "Sync failed and rollback was incomplete");
+		throw error;
+	}
 	console.log(`✓ Wrote ${REPORT_PATH}`);
 	console.log("✓ Done — sync produced changes");
 }

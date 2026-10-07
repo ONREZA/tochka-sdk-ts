@@ -38,6 +38,94 @@ function paymentPayload() {
 }
 
 describe("verifyPayGatewayWebhook", () => {
+	for (const paymentMethod of [
+		{ type: "DIGITAL_RUBLE", qrcId: "q1", operationId: "digital-operation-1" },
+		{
+			type: "DIGITAL_RUBLE_CASH_REGISTER_QRC",
+			qrcId: "q1",
+			operationId: "digital-operation-1",
+			activationUid: "a1",
+		},
+	] as const) {
+		test(`payment-updated принимает ${paymentMethod.type} и сохраняет результат`, async () => {
+			const { privateKey, publicKey } = await makeKeypair();
+			const payload = {
+				...paymentPayload(),
+				paymentMethod,
+			};
+			const jwt = await sign(privateKey, {
+				version: "1.0",
+				siteUid: "site-1",
+				createdAt: CREATED_AT,
+				event: "payment-updated",
+				payloadType: "payment",
+				payload,
+			});
+			const event = await verifyPayGatewayWebhook(jwt, { keySource: { key: publicKey } });
+			if (event.event !== "payment-updated") expect.unreachable();
+			expect(event.payload.paymentMethod).toEqual(payload.paymentMethod);
+		});
+	}
+
+	test("digital ruble payment methods validate required and optional fields", async () => {
+		const { privateKey, publicKey } = await makeKeypair();
+		for (const paymentMethod of [
+			{ type: "DIGITAL_RUBLE" },
+			{ type: "DIGITAL_RUBLE", qrcId: "q1", operationId: 1 },
+			{ type: "DIGITAL_RUBLE_CASH_REGISTER_QRC", qrcId: "q1" },
+		]) {
+			const jwt = await sign(privateKey, {
+				version: "1.0",
+				siteUid: "site-1",
+				createdAt: CREATED_AT,
+				event: "payment-updated",
+				payloadType: "payment",
+				payload: { ...paymentPayload(), paymentMethod },
+			});
+			await expect(
+				verifyPayGatewayWebhook(jwt, { keySource: { key: publicKey } }),
+			).rejects.toMatchObject({ reason: "payload_shape" });
+		}
+	});
+
+	test("DECLINED проверяет новый recommendation discriminator", async () => {
+		const { privateKey, publicKey } = await makeKeypair();
+		const envelope = {
+			version: "1.0",
+			siteUid: "site-1",
+			createdAt: CREATED_AT,
+			event: "payment-updated",
+			payloadType: "payment",
+		};
+		const status = {
+			value: "DECLINED",
+			changedDateTime: CREATED_AT,
+			reasonCode: "PAYMENT_EXECUTION_REJECTED",
+			reasonMessage: "Declined",
+			reasonSource: "ISSUER",
+		};
+		const valid = await sign(privateKey, {
+			...envelope,
+			payload: {
+				...paymentPayload(),
+				status: { ...status, recommendation: { type: "RETRY_WITH_ANOTHER_METHOD" } },
+			},
+		});
+		const event = await verifyPayGatewayWebhook(valid, { keySource: { key: publicKey } });
+		if (event.event !== "payment-updated") expect.unreachable();
+		if (event.payload.status.value !== "DECLINED") expect.unreachable();
+		expect(event.payload.status.recommendation?.type).toBe("RETRY_WITH_ANOTHER_METHOD");
+		for (const recommendation of [null, {}, { type: "UNKNOWN" }, { type: 1 }]) {
+			const jwt = await sign(privateKey, {
+				...envelope,
+				payload: { ...paymentPayload(), status: { ...status, recommendation } },
+			});
+			await expect(
+				verifyPayGatewayWebhook(jwt, { keySource: { key: publicKey } }),
+			).rejects.toMatchObject({ reason: "payload_shape" });
+		}
+	});
+
 	test("sbp-token-issued → дискриминированный event с token", async () => {
 		const { privateKey, publicKey } = await makeKeypair();
 		const jwt = await sign(privateKey, {
@@ -137,6 +225,67 @@ describe("verifyPayGatewayWebhook", () => {
 
 		const event = await verifyPayGatewayWebhook(jwt, { keySource: { key: publicKey } });
 		expect(event.event).toBe("refund-updated");
+	});
+
+	test("refund-updated validates optional refund method result before typed access", async () => {
+		const { privateKey, publicKey } = await makeKeypair();
+		for (const refundMethodResult of [
+			null,
+			{},
+			{ type: "UNKNOWN" },
+			{ type: "CARD" },
+			{ type: "CARD", isReversal: "false" },
+			{ type: "DIGITAL_RUBLE", operationId: 1 },
+			{ type: "DIGITAL_RUBLE_CASH_REGISTER_QRC", operationId: null },
+		]) {
+			const jwt = await sign(privateKey, {
+				version: "1.0",
+				siteUid: "site-1",
+				createdAt: CREATED_AT,
+				event: "refund-updated",
+				payloadType: "refund",
+				paymentUid: "p1",
+				payload: {
+					refundUid: "r1",
+					createdDateTime: CREATED_AT,
+					amount: money(),
+					status: completedStatus(),
+					metadata: "{}",
+					refundMethodResult,
+				},
+			});
+			await expect(
+				verifyPayGatewayWebhook(jwt, { keySource: { key: publicKey } }),
+			).rejects.toMatchObject({ reason: "payload_shape" });
+		}
+	});
+
+	test("refund-updated preserves both digital-ruble results with optional operationId", async () => {
+		const { privateKey, publicKey } = await makeKeypair();
+		for (const type of ["DIGITAL_RUBLE", "DIGITAL_RUBLE_CASH_REGISTER_QRC"]) {
+			for (const details of [{}, { operationId: "digital-operation-1" }]) {
+				const refundMethodResult = { type, ...details };
+				const jwt = await sign(privateKey, {
+					version: "1.0",
+					siteUid: "site-1",
+					createdAt: CREATED_AT,
+					event: "refund-updated",
+					payloadType: "refund",
+					paymentUid: "p1",
+					payload: {
+						refundUid: "r1",
+						createdDateTime: CREATED_AT,
+						amount: money(),
+						status: completedStatus(),
+						metadata: "{}",
+						refundMethodResult,
+					},
+				});
+				const event = await verifyPayGatewayWebhook(jwt, { keySource: { key: publicKey } });
+				if (event.event !== "refund-updated") expect.unreachable();
+				expect(event.payload.refundMethodResult).toEqual(refundMethodResult);
+			}
+		}
 	});
 
 	test("payment-updated проверяет весь обязательный payload", async () => {

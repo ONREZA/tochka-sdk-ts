@@ -12,19 +12,18 @@ export type paths = {
         };
         /**
          * Get Payment Operation List
-         * @description Метод для получения списка операций
+         * @description Метод возвращает список операций по платёжным ссылкам за период, c их статусами и данными оплаты.Помогает отслеживать, что оплачено, а что нет.
          *
-         *     - *CREATED* - Операция создана
-         *     - *APPROVED* - Операция одобрена (оплата прошла успешно)
-         *     - *ON-REFUND* - Операция заблокирована на время выполнения возврата
-         *     - *REFUNDED* - Осуществлен возврат
-         *     - *EXPIRED* - Истек срок действия
+         *     > Что означают статусы операций — в разделе «[Платёжные ссылки](/docs/tochka-api/opisanie-metodov/platyozhnye-ssylki)».
          */
         get: operations["get_payment_operation_list_acquiring_v1_0_payments_get"];
         put?: never;
         /**
          * Create Payment Operation
-         * @description Метод для создания ссылки на оплату
+         * @description Метод создаёт платёжную ссылку, по которой покупатель оплачивает заказ картой, через СБП, T-Pay или «Долями».
+         *     В ответ приходит ссылка и `operationId` для отслеживания оплаты.
+         *
+         *     > Как создать ссылку и какие параметры передать — в разделе «[Платёжные ссылки](/docs/tochka-api/opisanie-metodov/platyozhnye-ssylki)».
          */
         post: operations["create_payment_operation_acquiring_v1_0_payments_post"];
         delete?: never;
@@ -44,7 +43,10 @@ export type paths = {
         put?: never;
         /**
          * Create Payment Operation With Receipt
-         * @description Метод для создания ссылки на оплату и отправки чека
+         * @description Метод создаёт платёжную ссылку и отправляет покупателю кассовый чек по 54-ФЗ.
+         *     Подходит, если вы обязаны выдавать чеки: в запросе передаются позиции заказа, ставки НДС и данные для чека.
+         *
+         *     > Про фискализацию и состав чека — в разделе «[Платёжные ссылки](/docs/tochka-api/opisanie-metodov/platyozhnye-ssylki)».
          */
         post: operations["create_payment_operation_with_receipt_acquiring_v1_0_payments_with_receipt_post"];
         delete?: never;
@@ -62,13 +64,9 @@ export type paths = {
         };
         /**
          * Get Payment Operation Info
-         * @description Метод для получения информации о конкретной операции
+         * @description Метод возвращает подробную информацию об одной операции по её `operationId`: статус, сумму, способ оплаты, данные покупателя.
          *
-         *     - *CREATED* - Операция создана
-         *     - *APPROVED* - Операция одобрена (оплата прошла успешно)
-         *     - *ON-REFUND* - Операция заблокирована на время выполнения возврата
-         *     - *REFUNDED* - Осуществлен возврат
-         *     - *EXPIRED* - Истек срок действия
+         *     > Подробнее о платёжных ссылках — в разделе «[Платёжные ссылки](/docs/tochka-api/opisanie-metodov/platyozhnye-ssylki)».
          */
         get: operations["get_payment_operation_info_acquiring_v1_0_payments__operationId__get"];
         put?: never;
@@ -90,7 +88,10 @@ export type paths = {
         put?: never;
         /**
          * Capture Payment
-         * @description Метод для списания средств при двухэтапной оплате
+         * @description Метод списывает деньги, замороженные на карте покупателя при двухэтапной оплате.
+         *     До вызова этого метода деньги только заблокированы, а списываются именно им.
+         *
+         *     > Как работает двухэтапная оплата — в разделе «[Платёжные ссылки](/docs/tochka-api/opisanie-metodov/platyozhnye-ssylki)».
          */
         post: operations["capture_payment_acquiring_v1_0_payments__operationId__capture_post"];
         delete?: never;
@@ -110,8 +111,10 @@ export type paths = {
         put?: never;
         /**
          * Refund Payment Operation
-         * @description Метод для возврата платежей, созданных через платёжную ссылку
-         *     Возврат возможен только для платежа со статусом APPROVED
+         * @description Метод возвращает покупателю платёж, поступивший по платёжной ссылке.
+         *     Возврат бывает полным или частичным и возможен только для платежей в статусе *APPROVED*.
+         *
+         *     > Как оформить возврат — в разделе «[Платёжные ссылки](/docs/tochka-api/opisanie-metodov/platyozhnye-ssylki)».
          */
         post: operations["refund_payment_operation_acquiring_v1_0_payments__operationId__refund_post"];
         delete?: never;
@@ -129,7 +132,10 @@ export type paths = {
         };
         /**
          * Get Payment Registry
-         * @description Метод для получения реестра платежей по интернет-эквайрингу
+         * @description Метод возвращает реестр платежей за день: сумму каждого платежа, комиссию за эквайринг и сумму к зачислению.
+         *     Удобен для сверки прихода и расчёта комиссий.
+         *
+         *     > Подробнее о платёжных ссылках — в разделе «[Платёжные ссылки](/docs/tochka-api/opisanie-metodov/platyozhnye-ssylki)».
          */
         get: operations["get_payment_registry_acquiring_v1_0_registry_get"];
         put?: never;
@@ -149,17 +155,10 @@ export type paths = {
         };
         /**
          * Get Retailers
-         * @description Метод для получения информации о ретейлере
+         * @description Метод возвращает данные ваших торговых точек в интернет-эквайринге: их `merchantId`, статус регистрации, доступные способы оплаты и комиссию.
+         *     `merchantId` нужен при создании платёжных ссылок, если торговых точек несколько.
          *
-         *     - *NEW* - Ретейлер создан
-         *     - *ADDRESS_DADATA* - Адрес уточнен
-         *     - *OPEN_ACCOUNT* - Счёт открыт
-         *     - *TWPG_SENDED* - Данные мерчанта и терминала отправлены в процессинг
-         *     - *RETAILER_CREATED* - Мерчант создан в процессинге
-         *     - *TERMINAL_CREATED* - Терминал создан в процессинге
-         *     - *FILE_SENT* - файл отправлен в НСПК
-         *     - *REG* - Зарегистрирован
-         *     - *CLOSE* - Закрыт
+         *     > Зачем нужен `merchantId` — в разделе «[Платёжные ссылки](/docs/tochka-api/opisanie-metodov/platyozhnye-ssylki)».
          */
         get: operations["get_retailers_acquiring_v1_0_retailers_get"];
         put?: never;
@@ -179,13 +178,18 @@ export type paths = {
         };
         /**
          * Get Subscription List
-         * @description Метод для получения всех подписок
+         * @description Метод возвращает список всех ваших подписок с их данными и статусами.
+         *
+         *     > Подробнее о подписках — в разделе «[Подписки](/docs/tochka-api/opisanie-metodov/podpiski-rekurrentnye-platezhi)».
          */
         get: operations["get_subscription_list_acquiring_v1_0_subscriptions_get"];
         put?: never;
         /**
          * Create Subscription
-         * @description Метод для создания подписки по карте
+         * @description Метод создаёт подписку — регулярные списания с карты покупателя.
+         *     Списания могут идти по графику или без него, когда вы сами инициируете каждое списание.
+         *
+         *     > Как работают подписки с графиком и без — в разделе «[Подписки](/docs/tochka-api/opisanie-metodov/podpiski-rekurrentnye-platezhi)».
          */
         post: operations["create_subscription_acquiring_v1_0_subscriptions_post"];
         delete?: never;
@@ -205,7 +209,9 @@ export type paths = {
         put?: never;
         /**
          * Create Subscription With Receipt
-         * @description Метод для создания подписки по карте и отправке чека
+         * @description Метод создаёт подписку и отправляет покупателю кассовый чек по 54-ФЗ. Подходит, если по подписке нужно выдавать чеки.
+         *
+         *     > Про подписки и фискализацию — в разделе «[Подписки](/docs/tochka-api/opisanie-metodov/podpiski-rekurrentnye-platezhi)».
          */
         post: operations["create_subscription_with_receipt_acquiring_v1_0_subscriptions_with_receipt_post"];
         delete?: never;
@@ -225,7 +231,9 @@ export type paths = {
         put?: never;
         /**
          * Charge Subscription
-         * @description Метод для списания средств по рекуррентной подписке
+         * @description Метод списывает деньги по подписке без графика. Вы сами вызываете его, когда нужно провести очередное списание, и указываете сумму.
+         *
+         *     > Про подписки без графика — в разделе «[Подписки](/docs/tochka-api/opisanie-metodov/podpiski-rekurrentnye-platezhi)».
          */
         post: operations["charge_subscription_acquiring_v1_0_subscriptions__operationId__charge_post"];
         delete?: never;
@@ -243,13 +251,18 @@ export type paths = {
         };
         /**
          * Get Subscription Status
-         * @description Метод для получения актуального статуса подписки
+         * @description Метод показывает текущий статус подписки: активна, приостановлена, завершена и другие.
+         *
+         *     > Подробнее о подписках — в разделе «[Подписки](/docs/tochka-api/opisanie-metodov/podpiski-rekurrentnye-platezhi)».
          */
         get: operations["get_subscription_status_acquiring_v1_0_subscriptions__operationId__status_get"];
         put?: never;
         /**
          * Set Subscription Status
-         * @description Метод для установки статуса подписки
+         * @description Метод меняет статус подписки — например, отменяет её.
+         *     Доступно только для подписок с графиком списания. У подписок без графика статус изменить нельзя.
+         *
+         *     > Подробнее о подписках — в разделе «[Подписки](/docs/tochka-api/opisanie-metodov/podpiski-rekurrentnye-platezhi)».
          */
         post: operations["set_subscription_status_acquiring_v1_0_subscriptions__operationId__status_post"];
         delete?: never;
@@ -267,13 +280,18 @@ export type paths = {
         };
         /**
          * Get All Consents List
-         * @description Метод для получения списка разрешений.
+         * @description Метод возвращает список созданных списков разрешений и их статусы. Помогает проверить, какие права выданы и подтверждены.
+         *
+         *     > Про разрешения и scope — в разделе «[Авторизация по OAuth 2.0](/docs/tochka-api/algoritm-raboty-po-oauth-2.0)».
          */
         get: operations["get_all_consents_list_consent_v1_0_consents_get"];
         put?: never;
         /**
          * Create New Consent
-         * @description Метод для создания разрешения.
+         * @description Метод создаёт список разрешений — набор прав, которые вы запрашиваете у клиента при авторизации по OAuth 2.0.
+         *     В ответ приходит `consentId`, который клиент затем подтверждает.
+         *
+         *     > Как устроена авторизация по OAuth 2.0 — в разделе «[Авторизация по OAuth 2.0](/docs/tochka-api/algoritm-raboty-po-oauth-2.0)».
          */
         post: operations["create_new_consent_consent_v1_0_consents_post"];
         delete?: never;
@@ -291,7 +309,9 @@ export type paths = {
         };
         /**
          * Get Consent Info
-         * @description Метод для получения информации о списке разрешений
+         * @description Метод возвращает данные конкретного списка разрешений по его `consentId`: статус, набор прав и срок действия.
+         *
+         *     > Про разрешения и scope — в разделе «[Авторизация по OAuth 2.0](/docs/tochka-api/algoritm-raboty-po-oauth-2.0)».
          */
         get: operations["get_consent_info_consent_v1_0_consents__consentId__get"];
         put?: never;
@@ -311,7 +331,9 @@ export type paths = {
         };
         /**
          * Get All Child Consents
-         * @description Метод для получения всех дочерних разрешений
+         * @description Метод возвращает дочерние разрешения, выданные в рамках родительского списка.
+         *
+         *     > Про разрешения и scope — в разделе «[Авторизация по OAuth 2.0](/docs/tochka-api/algoritm-raboty-po-oauth-2.0)».
          */
         get: operations["get_all_child_consents_consent_v1_0_consents__consentId__child_get"];
         put?: never;
@@ -333,7 +355,10 @@ export type paths = {
         put?: never;
         /**
          * Create Invoice
-         * @description Метод для создания счёта на оплату
+         * @description Метод создаёт счёт на оплату — документ, который продавец выставляет покупателю. В нём указываются товары или услуги, сумма и реквизиты покупателя.
+         *     В ответ приходит `documentId`, по которому со счётом можно работать дальше.
+         *
+         *     > Что передать в счёте и как отследить оплату — в разделе «[Счёт на оплату](/docs/tochka-api/opisanie-metodov/vystavlenie-schetov-i-sozdanie-zakryvayushih-dokumentov/schet-na-oplatu)».
          */
         post: operations["create_invoice_invoice_v1_0_bills_post"];
         delete?: never;
@@ -354,7 +379,9 @@ export type paths = {
         post?: never;
         /**
          * Delete Invoice
-         * @description Метод для удаления счёта на оплату
+         * @description Метод удаляет счёт на оплату по его `documentId`. Пригодится, если в счёте ошибка: отредактировать счёт нельзя, поэтому его удаляют и создают заново.
+         *
+         *     > Подробнее о счетах на оплату — в разделе «[Счёт на оплату](/docs/tochka-api/opisanie-metodov/vystavlenie-schetov-i-sozdanie-zakryvayushih-dokumentov/schet-na-oplatu)».
          */
         delete: operations["delete_invoice_invoice_v1_0_bills__customerCode___documentId__delete"];
         options?: never;
@@ -373,7 +400,9 @@ export type paths = {
         put?: never;
         /**
          * Send Invoice To Email
-         * @description Метод для отправки счёта на почту
+         * @description Метод отправляет счёт на оплату на электронную почту — например, покупателю.
+         *
+         *     > Подробнее о счетах на оплату — в разделе «[Счёт на оплату](/docs/tochka-api/opisanie-metodov/vystavlenie-schetov-i-sozdanie-zakryvayushih-dokumentov/schet-na-oplatu)».
          */
         post: operations["send_invoice_to_email_invoice_v1_0_bills__customerCode___documentId__email_post"];
         delete?: never;
@@ -391,7 +420,9 @@ export type paths = {
         };
         /**
          * Get Invoice
-         * @description Метод для получения файла выставленного счёта
+         * @description Метод возвращает выставленный счёт в формате PDF — готовый файл, который можно сохранить или отправить покупателю.
+         *
+         *     > Подробнее о счетах на оплату — в разделе «[Счёт на оплату](/docs/tochka-api/opisanie-metodov/vystavlenie-schetov-i-sozdanie-zakryvayushih-dokumentov/schet-na-oplatu)».
          */
         get: operations["get_invoice_invoice_v1_0_bills__customerCode___documentId__file_get"];
         put?: never;
@@ -411,7 +442,10 @@ export type paths = {
         };
         /**
          * Get Invoice Payment Status
-         * @description Метод для получения статуса счёта
+         * @description Метод показывает, оплачен ли счёт: ожидает оплаты, оплачен или истёк срок.
+         *     Статус меняется автоматически, когда мы сопоставляем входящий платёж со счётом.
+         *
+         *     > Как отслеживается оплата счёта — в разделе «[Счёт на оплату](/docs/tochka-api/opisanie-metodov/vystavlenie-schetov-i-sozdanie-zakryvayushih-dokumentov/schet-na-oplatu)».
          */
         get: operations["get_invoice_payment_status_invoice_v1_0_bills__customerCode___documentId__payment_status_get"];
         put?: never;
@@ -433,7 +467,10 @@ export type paths = {
         put?: never;
         /**
          * Create Closing Document
-         * @description Метод для создания закрывающего документа
+         * @description Метод создаёт закрывающий документ — акт, счёт-фактуру, накладную ТОРГ-12 или УПД. Он подтверждает, что товар передан, а услуга оказана.
+         *     Вид документа определяется тем, какой объект вы передадите в `Content`.
+         *
+         *     > Какие бывают документы и что передать — в разделе «[Закрывающие документы](/docs/tochka-api/opisanie-metodov/vystavlenie-schetov-i-sozdanie-zakryvayushih-dokumentov/zakryvayushie-dokumenty)».
          */
         post: operations["create_closing_document_invoice_v1_0_closing_documents_post"];
         delete?: never;
@@ -454,7 +491,9 @@ export type paths = {
         post?: never;
         /**
          * Delete Closing Documents
-         * @description Метод для удаления закрывающего документа
+         * @description Метод удаляет закрывающий документ по его `documentId`. Пригодится, если в документе ошибка: отредактировать его нельзя, поэтому документ удаляют и создают заново.
+         *
+         *     > Подробнее о закрывающих документах — в разделе «[Закрывающие документы](/docs/tochka-api/opisanie-metodov/vystavlenie-schetov-i-sozdanie-zakryvayushih-dokumentov/zakryvayushie-dokumenty)».
          */
         delete: operations["delete_closing_documents_invoice_v1_0_closing_documents__customerCode___documentId__delete"];
         options?: never;
@@ -473,7 +512,9 @@ export type paths = {
         put?: never;
         /**
          * Send Closing Documents To Email
-         * @description Метод для отправки закрывающего документа на почту
+         * @description Метод отправляет закрывающий документ на электронную почту — например, контрагента.
+         *
+         *     > Подробнее о закрывающих документах — в разделе «[Закрывающие документы](/docs/tochka-api/opisanie-metodov/vystavlenie-schetov-i-sozdanie-zakryvayushih-dokumentov/zakryvayushie-dokumenty)».
          */
         post: operations["send_closing_documents_to_email_invoice_v1_0_closing_documents__customerCode___documentId__email_post"];
         delete?: never;
@@ -491,7 +532,9 @@ export type paths = {
         };
         /**
          * Get Closing Document
-         * @description Метод для получения файла закрывающего документа
+         * @description Метод возвращает закрывающий документ в формате PDF — готовый файл для сохранения или отправки.
+         *
+         *     > Подробнее о закрывающих документах — в разделе «[Закрывающие документы](/docs/tochka-api/opisanie-metodov/vystavlenie-schetov-i-sozdanie-zakryvayushih-dokumentov/zakryvayushie-dokumenty)».
          */
         get: operations["get_closing_document_invoice_v1_0_closing_documents__customerCode___documentId__file_get"];
         put?: never;
@@ -511,7 +554,10 @@ export type paths = {
         };
         /**
          * Get Accounts List
-         * @description Метод для получения списка доступных счетов
+         * @description Метод возвращает список счетов организации и их `accountId`.
+         *     С него удобно начинать: `accountId` нужен для запросов баланса, выписок и других операций по счёту.
+         *
+         *     > Подробнее о счетах — в разделе «[Счета](/docs/tochka-api/opisanie-metodov/scheta)».
          */
         get: operations["get_accounts_list_open_banking_v1_0_accounts_get"];
         put?: never;
@@ -531,7 +577,9 @@ export type paths = {
         };
         /**
          * Get Account Info
-         * @description Метод для получения информации по конкретному счёту
+         * @description Метод возвращает данные одного счёта по его `accountId`: статус, тип, валюту и другие параметры.
+         *
+         *     > Подробнее о счетах — в разделе «[Счета](/docs/tochka-api/opisanie-metodov/scheta)».
          */
         get: operations["get_account_info_open_banking_v1_0_accounts__accountId__get"];
         put?: never;
@@ -551,7 +599,10 @@ export type paths = {
         };
         /**
          * Get Authorized Card Transactions
-         * @description Метод для получения авторизованных карточных транзакций конкретного счёта
+         * @description Метод возвращает карточные операции по счёту, которые уже совершены, но ещё не отражены в выписке.
+         *     Когда покупатель платит картой или снимает наличные, сумма сразу попадает в резерв и становится недоступной, а в выписку операция приходит только после окончательного списания — обычно через несколько дней. Так вы видите движение по карте в реальном времени, не дожидаясь выписки.
+         *
+         *     > Как устроен резерв и карточные операции — в разделе «[Баланс счёта](/docs/tochka-api/opisanie-metodov/balans-schyota)».
          */
         get: operations["get_authorized_card_transactions_open_banking_v1_0_accounts__accountId__authorized_card_transactions_get"];
         put?: never;
@@ -571,7 +622,10 @@ export type paths = {
         };
         /**
          * Get Balance Info
-         * @description Метод для получения информации о балансе конкретного счёта
+         * @description Метод возвращает остатки по одному счёту: сколько денег на счёте, сколько доступно к трате и сколько заблокировано.
+         *     Нужен, чтобы проверить баланс перед платежом или показать его пользователю. Счёт указывается в параметре `accountId`.
+         *
+         *     > Про типы баланса и то, как посчитать доступную сумму — в разделе «[Баланс счёта](/docs/tochka-api/opisanie-metodov/balans-schyota)».
          */
         get: operations["get_balance_info_open_banking_v1_0_accounts__accountId__balances_get"];
         put?: never;
@@ -591,17 +645,16 @@ export type paths = {
         };
         /**
          * Get Statement
-         * @description Метод для получения конкретной выписки
+         * @description Метод возвращает готовую выписку по её `statementId`.
+         *     Пока выписка формируется, по нему же можно отследить статус:
          *
-         *     После вызова метода `Init Statement` с помощью `statementId` можно отследить,на каком этапе создание определённой выписки.
+         *     - *Created* — запрос создан
+         *     - *Processing* — в обработке
+         *     - *Ready* — выписка готова
          *
-         *     Есть три статуса:
-         *     *Created* — создан запрос на выписку;
-         *     *Processing* — запрос в обработке;
-         *     *Ready* — выписка готова.
+         *     В выписку попадают только операции в финальном статусе.
          *
-         *     **Особенности:**
-         *     Метод *Init Statement* отрабатывает асинхронно.Отражаются только операции, находящиеся в финальном статусе — *Ready*.
+         *     > Как заказать выписку и что в ней приходит — в разделе «[Выписки](/docs/tochka-api/opisanie-metodov/vypiski)».
          */
         get: operations["get_statement_open_banking_v1_0_accounts__accountId__statements__statementId__get"];
         put?: never;
@@ -621,7 +674,10 @@ export type paths = {
         };
         /**
          * Get Balances List
-         * @description Метод для получения баланса по нескольким счетам
+         * @description Метод возвращает остатки сразу по всем счетам организации — по каждому отдельным элементом.
+         *     Удобен, когда счетов несколько и нужно получить их балансы одним запросом, а не вызывать метод для каждого счёта.
+         *
+         *     > Про типы баланса и формат ответа — в разделе «[Баланс счёта](/docs/tochka-api/opisanie-metodov/balans-schyota)»
          */
         get: operations["get_balances_list_open_banking_v1_0_balances_get"];
         put?: never;
@@ -641,7 +697,10 @@ export type paths = {
         };
         /**
          * Get Customers List
-         * @description Метод для получения списка доступных клиентов
+         * @description Метод возвращает список компаний, к которым у вас есть доступ, и их `customerCode`.
+         *     С этого метода обычно начинают работу: `customerCode` нужен в большинстве других запросов. Берите значение из объекта с `customerType`: "Business".
+         *
+         *     > Что такое `customerCode` и где он нужен — в разделе «[Клиенты](/docs/tochka-api/opisanie-metodov/klienty)».
          */
         get: operations["get_customers_list_open_banking_v1_0_customers_get"];
         put?: never;
@@ -661,7 +720,9 @@ export type paths = {
         };
         /**
          * Get Customer Info
-         * @description Метод для получения информации по конкретному клиенту
+         * @description Метод возвращает данные конкретной компании по её `customerCode`: наименование, ИНН, КПП и другие реквизиты.
+         *
+         *     > Подробнее о работе с клиентами — в разделе «[Клиенты](/docs/tochka-api/opisanie-metodov/klienty)».
          */
         get: operations["get_customer_info_open_banking_v1_0_customers__customerCode__get"];
         put?: never;
@@ -681,21 +742,19 @@ export type paths = {
         };
         /**
          * Get Statements List
-         * @description Метод для получения списка доступных выписок
+         * @description Метод возвращает список выписок, которые вы заказывали, с их статусами.
+         *      Помогает найти нужную выписку и понять, готова ли она.
          *
-         *     После вызова метода `Init Statement` можно отследить, в каком статусе готовящаяся выписка:
-         *     *Created* — только создан запрос на выписку;
-         *     *Processing* — запрос в обработке;
-         *     *Ready* — выписка готова.
-         *
-         *     **Особенности:**
-         *     Отражаются только операции, находящиеся в финальном статусе — *Ready*.
+         *     > Как работать с выписками — в разделе «[Выписки](/docs/tochka-api/opisanie-metodov/vypiski)».
          */
         get: operations["get_statements_list_open_banking_v1_0_statements_get"];
         put?: never;
         /**
          * Init Statement
-         * @description Метод для создания выписки по конкретному счёту
+         * @description Метод запускает формирование выписки по счёту за нужный период.
+         *     Выписка готовится асинхронно: этот метод только ставит её в очередь и возвращает `statementId`, по которому потом можно забрать готовый документ.
+         *
+         *     > Как заказать и получить выписку — в разделе «[Выписки](/docs/tochka-api/opisanie-metodov/vypiski)».
          */
         post: operations["init_statement_open_banking_v1_0_statements_post"];
         delete?: never;
@@ -713,21 +772,24 @@ export type paths = {
         };
         /**
          * Get Payment For Sign List
-         * @description Метод получения списка платежей на подпись
+         * @description Метод возвращает платежи из раздела «На подпись» — созданные и через API, и вручную в интернет-банке.
+         *
+         *     > Подробнее об исходящих платежах — в разделе «[Платёжные поручения](/docs/tochka-api/opisanie-metodov/platezhi)».
          */
         get: operations["get_payment_for_sign_list_payment_v1_0_for_sign_get"];
         put?: never;
         /**
          * Create Payment For Sign
-         * @description Метод для создания платежа.
+         * @description Метод создаёт платёжку и отправляет её на подпись.
+         *     Сам по себе он деньги не переводит: платёж появляется в интернет-банке в разделе «На подпись», и уходит получателю только после того, как сотрудник подпишет его там же с помощью смс-кода.
+         *     В ответ приходит ссылка на страницу подписания.
          *
-         *     Чтобы платёж прошёл, его нужно будет подписать в интернет-банке.
+         *     **Важно:**
+         *     - Если создаёте платёж за третье лицо, поля `payerINN` и `payerKPP` обязательны
+         *     - Если платите за себя в бюджет, обязательным становится `payerKPP`
+         *     - Поле `paymentDate` заполняется по часовому поясу Москвы.
          *
-         *     Если вы создаёте платёж за третье лицо, поля `payerINN` и `payerKPP` обязательные для заполнения.
-         *     Если платите за себя в бюджет, поле `payerKPP` становится обязательным.
-         *
-         *     **Обратите внимание:**
-         *     *paymentDate* нужно заполнить по часовому поясу Москвы.
+         *     > Как устроена отправка платежа и его статусы — в разделе «[Платёжные поручения](/docs/tochka-api/opisanie-metodov/platezhi)».
          */
         post: operations["create_payment_for_sign_payment_v1_0_for_sign_post"];
         delete?: never;
@@ -745,7 +807,9 @@ export type paths = {
         };
         /**
          * Get Payment Status
-         * @description Метод для получения статуса платежа
+         * @description Метод показывает, на каком этапе платёж: ждёт подписания, передан в обработку, оплачен, отменён или отклонён.
+         *
+         *     > Что означают статусы платежа вы можете прочитать в разделе «[Платёжные поручения](/docs/tochka-api/opisanie-metodov/platezhi)».
          */
         get: operations["get_payment_status_payment_v1_0_status__requestId__get"];
         put?: never;
@@ -765,7 +829,9 @@ export type paths = {
         };
         /**
          * Get Accounts List
-         * @description Метод для получения списка счетов юрлица в Системе быстрых платежей
+         * @description Метод возвращает счета юрлица, доступные для приёма оплаты по СБП.
+         *
+         *     > Про регистрацию и счета в СБП — в разделе «[Регистрация ЮЛ или ТСП](/docs/tochka-api/opisanie-metodov/sbp-sistema-bystryh-platezhej/registraciya-yul-i-tsp)».
          */
         get: operations["get_accounts_list_sbp_v1_0_account__legalId__get"];
         put?: never;
@@ -785,7 +851,9 @@ export type paths = {
         };
         /**
          * Get B2B Qr Code
-         * @description Метод для получения информации о B2B QR-коде
+         * @description Метод возвращает данные одного B2B QR-кода по его `qrcId`.
+         *
+         *     > Про B2B QR-коды — в разделе «[Работа с QR-кодами](/docs/tochka-api/opisanie-metodov/sbp-sistema-bystryh-platezhej/rabota-s-qr-kodami)».
          */
         get: operations["get_b2b_qr_code_sbp_v1_0_b2b_qr_code__qrcId__get"];
         put?: never;
@@ -807,7 +875,10 @@ export type paths = {
         put?: never;
         /**
          * Register B2B Qr Code
-         * @description Метод для регистрации B2B QR-кода в Системе быстрых платежей
+         * @description Метод создаёт B2B QR-код для приёма платежей от организаций и ИП, не от физлиц.
+         *     Сумма для такого кода обязательна.
+         *
+         *     > Как работать с B2B QR-кодами — в разделе «[Работа с QR-кодами](/docs/tochka-api/opisanie-metodov/sbp-sistema-bystryh-platezhej/rabota-s-qr-kodami)».
          */
         post: operations["register_b2b_qr_code_sbp_v1_0_b2b_qr_code_merchant__merchantId___accountId__post"];
         delete?: never;
@@ -827,7 +898,9 @@ export type paths = {
         put?: never;
         /**
          * Register Cashbox Qrcode
-         * @description Метод для регистрации кассового QR-кода
+         * @description Метод создаёт кассовый QR-код — один код, по которому можно принимать много оплат, но перед каждой его нужно активировать заново. Подходит для кассы.
+         *
+         *     > Как работать с кассовыми QR-кодами — в разделе «[Работа с QR-кодами](/docs/tochka-api/opisanie-metodov/sbp-sistema-bystryh-platezhej/rabota-s-qr-kodami)».
          */
         post: operations["register_cashbox_qrcode_sbp_v1_0_cashbox_qr_code_post"];
         delete?: never;
@@ -847,7 +920,9 @@ export type paths = {
         put?: never;
         /**
          * Get Cashbox Qrcode
-         * @description Метод для получения информации о кассовом QR-коде
+         * @description Метод возвращает данные одного кассового QR-кода по его `qrcId`.
+         *
+         *     > Про кассовые QR-коды — в разделе «[Работа с QR-кодами](/docs/tochka-api/opisanie-metodov/sbp-sistema-bystryh-platezhej/rabota-s-qr-kodami)».
          */
         post: operations["get_cashbox_qrcode_sbp_v1_0_cashbox_qr_code__qrcId__post"];
         delete?: never;
@@ -867,7 +942,9 @@ export type paths = {
         put?: never;
         /**
          * Change Cashbox Qrcode Account
-         * @description Метод для смены счёта зачисления кассового QR-кода
+         * @description Метод меняет счёт, на который зачисляется оплата по кассовому QR-коду.
+         *
+         *     > Про кассовые QR-коды — в разделе «[Работа с QR-кодами](/docs/tochka-api/opisanie-metodov/sbp-sistema-bystryh-platezhej/rabota-s-qr-kodami)».
          */
         post: operations["change_cashbox_qrcode_account_sbp_v1_0_cashbox_qr_code__qrcId__account_post"];
         delete?: never;
@@ -887,7 +964,9 @@ export type paths = {
         put?: never;
         /**
          * Activate Cashbox Qrcode
-         * @description Метод для активации кассового QR-кода
+         * @description Метод активирует кассовый QR-код перед оплатой: задаёт сумму и срок действия. После оплаты или по истечении срока код нужно активировать заново.
+         *
+         *     > Как принимать оплату кассовым QR-кодом — в разделе «[Работа с QR-кодами](/docs/tochka-api/opisanie-metodov/sbp-sistema-bystryh-platezhej/rabota-s-qr-kodami)».
          */
         post: operations["activate_cashbox_qrcode_sbp_v1_0_cashbox_qr_code__qrcId__activate_post"];
         delete?: never;
@@ -907,7 +986,9 @@ export type paths = {
         put?: never;
         /**
          * Deactivate Cashbox Qrcode
-         * @description Метод для деактивации кассового QR-кода
+         * @description Метод отключает активированный кассовый QR-код — например, если покупатель передумал оплачивать.
+         *
+         *     > Про кассовые QR-коды — в разделе «[Работа с QR-кодами](/docs/tochka-api/opisanie-metodov/sbp-sistema-bystryh-platezhej/rabota-s-qr-kodami)».
          */
         post: operations["deactivate_cashbox_qrcode_sbp_v1_0_cashbox_qr_code__qrcId__deactivate_post"];
         delete?: never;
@@ -925,7 +1006,9 @@ export type paths = {
         };
         /**
          * Get Cashbox Qrcode Operation Info
-         * @description Метод для получения статуса кассового QR-кода.
+         * @description Метод возвращает информацию об операции по кассовому QR-коду и её статус.
+         *
+         *     > Про кассовые QR-коды — в разделе «[Работа с QR-кодами](/docs/tochka-api/opisanie-metodov/sbp-sistema-bystryh-platezhej/rabota-s-qr-kodami)».
          */
         get: operations["get_cashbox_qrcode_operation_info_sbp_v1_0_cashbox_qr_code__qrcId__operation_get"];
         put?: never;
@@ -945,7 +1028,9 @@ export type paths = {
         };
         /**
          * Get Cashbox Qrcode Status
-         * @description Метод для получения статуса кассового QR-кода.
+         * @description Метод показывает текущий статус кассового QR-кода: активен, ожидает оплаты или оплата обрабатывается.
+         *
+         *     > Про кассовые QR-коды — в разделе «[Работа с QR-кодами](/docs/tochka-api/opisanie-metodov/sbp-sistema-bystryh-platezhej/rabota-s-qr-kodami)».
          */
         get: operations["get_cashbox_qrcode_status_sbp_v1_0_cashbox_qr_code__qrcId__status_get"];
         put?: never;
@@ -965,7 +1050,9 @@ export type paths = {
         };
         /**
          * Get Cashbox Qrcode List
-         * @description Метод для получения списка кассовых QR-кодов
+         * @description Метод возвращает список кассовых QR-кодов торговой точки.
+         *
+         *     > Про кассовые QR-коды — в разделе «[Работа с QR-кодами](/docs/tochka-api/opisanie-metodov/sbp-sistema-bystryh-platezhej/rabota-s-qr-kodami)».
          */
         get: operations["get_cashbox_qrcode_list_sbp_v1_0_cashbox_qr_code_merchant__merchantId___accountId__get"];
         put?: never;
@@ -985,7 +1072,10 @@ export type paths = {
         };
         /**
          * Get Customer Info
-         * @description Метод для получения информации о клиенте в Системе быстрых платежей
+         * @description Метод возвращает данные клиента в СБП.
+         *     По нему же можно проверить, подключён ли у клиента цифровой рубль: если да, в ответе придёт объект `digitalRubleWallet`.
+         *
+         *     > Как проверить регистрацию в СБП вы можете изучить в разделе «[Регистрация ЮЛ или ТСП](/docs/tochka-api/opisanie-metodov/sbp-sistema-bystryh-platezhej/registraciya-yul-i-tsp)».
          */
         get: operations["get_customer_info_sbp_v1_0_customer__customerCode___bankCode__get"];
         put?: never;
@@ -1005,9 +1095,10 @@ export type paths = {
         };
         /**
          * Get Payments
-         * @description Метод для получения списка платежей в Системе быстрых платежей
+         * @description Метод возвращает список платежей по СБП за период. По нему можно найти платёж и получить его идентификатор для возврата.
+         *     При поиске за прошедшие дни обязательно передавайте `fromDate` — начальную дату периода. Без него поиск вернёт результаты только за вчера и сегодня.
          *
-         *     Обратите внимание: при поиске платежей за прошедшие дни обязательно передавать атрибут `fromDate` с указанием начальной даты периода. Если этот атрибут не передать, поиск выдаст результаты только за вчерашний и сегодняшний дни.
+         *     > Как найти платёж для возврата — в разделе «[Работа с возвратами через СБП](/docs/tochka-api/opisanie-metodov/sbp-sistema-bystryh-platezhej/rabota-s-vozvratami)».
          */
         get: operations["get_payments_sbp_v1_0_get_sbp_payments_get"];
         put?: never;
@@ -1027,13 +1118,17 @@ export type paths = {
         };
         /**
          * Get Legal Entity
-         * @description Метод для получения данных юрлица в Системе быстрых платежей
+         * @description Метод возвращает данные юрлица в СБП по его `legalId`.
+         *
+         *     > Про регистрацию юрлица — в разделе «[Регистрация ЮЛ или ТСП](/docs/tochka-api/opisanie-metodov/sbp-sistema-bystryh-platezhej/registraciya-yul-i-tsp)».
          */
         get: operations["get_legal_entity_sbp_v1_0_legal_entity__legalId__get"];
         put?: never;
         /**
          * Set Legal Entity Status
-         * @description Метод устанавливает статус юрлица в Системе быстрых платежей
+         * @description Метод меняет статус юрлица в СБП.
+         *
+         *     > Про работу с юрлицом в СБП — в разделе «[Регистрация ЮЛ или ТСП](/docs/tochka-api/opisanie-metodov/sbp-sistema-bystryh-platezhej/registraciya-yul-i-tsp)».
          */
         post: operations["set_legal_entity_status_sbp_v1_0_legal_entity__legalId__post"];
         delete?: never;
@@ -1051,12 +1146,16 @@ export type paths = {
         };
         /**
          * Get Merchant
-         * @description Метод для получения информации о ТСП
+         * @description Метод возвращает данные одной торговой точки по её `merchantId`.
+         *
+         *     > Про регистрацию и работу с ТСП — в разделе «[Регистрация ЮЛ или ТСП](/docs/tochka-api/opisanie-metodov/sbp-sistema-bystryh-platezhej/registraciya-yul-i-tsp)».
          */
         get: operations["get_merchant_sbp_v1_0_merchant__merchantId__get"];
         /**
          * Set Merchant Status
-         * @description Метод устанавливает статус ТСП
+         * @description Метод меняет статус торговой точки — например, приостанавливает её работу или возобновляет.
+         *
+         *     > Про работу с ТСП — в разделе «[Регистрация ЮЛ или ТСП](/docs/tochka-api/opisanie-metodov/sbp-sistema-bystryh-platezhej/registraciya-yul-i-tsp)».
          */
         put: operations["set_merchant_status_sbp_v1_0_merchant__merchantId__put"];
         post?: never;
@@ -1075,13 +1174,17 @@ export type paths = {
         };
         /**
          * Get Merchants List
-         * @description Метод для получения списка ТСП юрлица
+         * @description Метод возвращает список торговых точек юрлица с их `merchantId` и данными.
+         *
+         *     > Про регистрацию и работу с ТСП — в разделе «[Регистрация ЮЛ или ТСП](/docs/tochka-api/opisanie-metodov/sbp-sistema-bystryh-platezhej/registraciya-yul-i-tsp)».
          */
         get: operations["get_merchants_list_sbp_v1_0_merchant_legal_entity__legalId__get"];
         put?: never;
         /**
          * Register Merchant
-         * @description Метод для регистрации ТСП в Системе быстрых платежей
+         * @description Метод регистрирует торговую точку (ТСП) в СБП. Это нужно один раз перед созданием QR-кодов: без зарегистрированной точки принимать оплату нельзя. В ответ приходит `merchantId`.
+         *
+         *     > Как зарегистрировать ЮЛ и торговую точку — в разделе «[Регистрация ЮЛ или ТСП](/docs/tochka-api/opisanie-metodov/sbp-sistema-bystryh-platezhej/registraciya-yul-i-tsp)».
          */
         post: operations["register_merchant_sbp_v1_0_merchant_legal_entity__legalId__post"];
         delete?: never;
@@ -1099,7 +1202,9 @@ export type paths = {
         };
         /**
          * Get Qr Code
-         * @description Метод для получения информации о QR-коде
+         * @description Метод возвращает данные одного QR-кода по его `qrcId`.
+         *
+         *     > Подробнее о работе с QR-кодами — в разделе «[Работа с QR-кодами](/docs/tochka-api/opisanie-metodov/sbp-sistema-bystryh-platezhej/rabota-s-qr-kodami)».
          */
         get: operations["get_qr_code_sbp_v1_0_qr_code__qrcId__get"];
         put?: never;
@@ -1119,7 +1224,9 @@ export type paths = {
         };
         /**
          * Get Qr Codes List
-         * @description Метод для получения списка QR-кодов
+         * @description Метод возвращает список QR-кодов юрлица с их данными и статусами.
+         *
+         *     > Подробнее о работе с QR-кодами — в разделе «[Работа с QR-кодами](/docs/tochka-api/opisanie-metodov/sbp-sistema-bystryh-platezhej/rabota-s-qr-kodami)».
          */
         get: operations["get_qr_codes_list_sbp_v1_0_qr_code_legal_entity__legalId__get"];
         put?: never;
@@ -1141,7 +1248,10 @@ export type paths = {
         put?: never;
         /**
          * Register Qr Code
-         * @description Метод для регистрации статического или динамического QR-кода в Системе быстрых платежей
+         * @description Метод создаёт статический или динамический QR-код для приёма оплаты по СБП.
+         *     По статическому коду можно принимать много оплат, динамический создаётся под конкретную сумму. Тип задаётся в поле `qrcType`.
+         *
+         *     > Чем отличаются типы QR-кодов и как их создавать — в разделе «[Работа с QR-кодами](/docs/tochka-api/opisanie-metodov/sbp-sistema-bystryh-platezhej/rabota-s-qr-kodami)».
          */
         post: operations["register_qr_code_sbp_v1_0_qr_code_merchant__merchantId___accountId__post"];
         delete?: never;
@@ -1159,7 +1269,12 @@ export type paths = {
         };
         /**
          * Get Qr Codes Payment Status
-         * @description Метод для получения статусов операций по динамическим QR-кодам
+         * @description Метод показывает, оплачен ли динамический QR-код.
+         *     По длине идентификатора `trxId` в ответе можно понять способ оплаты:
+         *     - 32 символа — оплата по СБП
+         *     - 36 — цифровым рублём
+         *
+         *     > Как принимать оплату по QR-кодам — в разделе «[Работа с QR-кодами](/docs/tochka-api/opisanie-metodov/sbp-sistema-bystryh-platezhej/rabota-s-qr-kodami)».
          */
         get: operations["get_qr_codes_payment_status_sbp_v1_0_qr_codes__qrcIds__payment_status_get"];
         put?: never;
@@ -1181,9 +1296,14 @@ export type paths = {
         put?: never;
         /**
          * Start Refund
-         * @description Метод запрашивает возврат платежа через Систему быстрых платежей
+         * @description Метод возвращает покупателю платёж, поступивший по СБП.
          *
-         *     Если нужно вернуть деньги нерезиденту, назначение платежа должно начинаться с «{VO99020} Возврат ошибочно полученной суммы transactionId», где `transactionId` — это идентификатор оригинальной операции.
+         *     Возврат бывает полным или частичным, сумма не должна превышать сумму поступления.
+         *     Если возвращаете деньги нерезиденту, назначение платежа должно начинаться с {VO99020}.
+         *
+         *     Возврат ошибочно полученной суммы `transactionId`, где `transactionId` — идентификатор оригинальной операции.
+         *
+         *     > Как оформить возврат по СБП — в разделе «[Работа с возвратами через СБП](/docs/tochka-api/opisanie-metodov/sbp-sistema-bystryh-platezhej/rabota-s-vozvratami)».
          */
         post: operations["start_refund_sbp_v1_0_refund_post"];
         delete?: never;
@@ -1201,7 +1321,9 @@ export type paths = {
         };
         /**
          * Get Refund Data
-         * @description Метод для получения информация о платеже-возврате по Системе быстрых платежей
+         * @description Метод показывает статус возврата: выполнен он или отклонён.
+         *
+         *     > Как отследить возврат — в разделе «[Работа с возвратами через СБП](/docs/tochka-api/opisanie-metodov/sbp-sistema-bystryh-platezhej/rabota-s-vozvratami)».
          */
         get: operations["get_refund_data_sbp_v1_0_refund__request_id__get"];
         put?: never;
@@ -1223,7 +1345,10 @@ export type paths = {
         put?: never;
         /**
          * Register Legal Entity
-         * @description Метод для регистрации юрлица в Системе быстрых платежей
+         * @description Метод регистрирует юридическое лицо в СБП.
+         *     Это первый шаг перед работой с QR-кодами: в ответ приходит `legalId`, который нужен для регистрации торговых точек.
+         *
+         *     > С чего начать работу с СБП вы можете прочитать в разделе «[Регистрация ЮЛ или ТСП](/docs/tochka-api/opisanie-metodov/sbp-sistema-bystryh-platezhej/registraciya-yul-i-tsp)».
          */
         post: operations["register_legal_entity_sbp_v1_0_register_sbp_legal_entity_post"];
         delete?: never;
@@ -1241,22 +1366,31 @@ export type paths = {
         };
         /**
          * Get Webhooks
-         * @description Метод для получения списка вебхуков приложения
+         * @description Метод возвращает список вебхуков, подключённых к вашему приложению, и события, на которые они подписаны.
+         *     Помогает проверить, какие уведомления настроены.
+         *
+         *     > Подробнее о работе с вебхуками — в разделе «[Вебхуки](/docs/tochka-api/opisanie-metodov/vebhuki)».
          */
         get: operations["get_webhooks_webhook_v1_0__client_id__get"];
         /**
          * Create Webhook
-         * @description Метод для создания вебхуков
+         * @description Метод подключает вебхук — уведомление, которое банк присылает на ваш URL, когда происходит событие: поступил или ушёл платёж, прошла оплата по QR-коду. Вы указываете адрес и список событий, на которые хотите подписаться.
+         *
+         *     > Какие бывают события и как подписаться — в разделе «[Вебхуки](/docs/tochka-api/opisanie-metodov/vebhuki)».
          */
         put: operations["create_webhook_webhook_v1_0__client_id__put"];
         /**
          * Edit Webhook
-         * @description Метод для изменения URL и типа вебхука
+         * @description Метод меняет настройки уже подключённого вебхука — адрес, на который приходят уведомления, и список событий.
+         *
+         *     > Подробнее о работе с вебхуками — в разделе «[Вебхуки](/docs/tochka-api/opisanie-metodov/vebhuki)».
          */
         post: operations["edit_webhook_webhook_v1_0__client_id__post"];
         /**
          * Delete Webhook
-         * @description Метод для удаления вебхука
+         * @description Метод отключает вебхук. После удаления банк перестаёт присылать уведомления на указанный в нём адрес.
+         *
+         *     > Подробнее о работе с вебхуками — в разделе «[Вебхуки](/docs/tochka-api/opisanie-metodov/vebhuki)».
          */
         delete: operations["delete_webhook_webhook_v1_0__client_id__delete"];
         options?: never;
@@ -1275,7 +1409,9 @@ export type paths = {
         put?: never;
         /**
          * Send Webhook
-         * @description Метод для проверки отправки вебхука
+         * @description Метод отправляет тестовое уведомление на ваш URL, чтобы проверить, что сервер принимает вебхуки и правильно на них отвечает. Удобно использовать при настройке интеграции.
+         *
+         *     > Подробнее о работе с вебхуками — в разделе «[Вебхуки](/docs/tochka-api/opisanie-metodov/vebhuki)».
          */
         post: operations["send_webhook_webhook_v1_0__client_id__test_send_post"];
         delete?: never;
@@ -3178,7 +3314,7 @@ export type components = {
          * ConsentTypeEnum
          * @enum {string}
          */
-        ConsentTypeEnum: "ReadAccountsBasic" | "ReadAccountsDetail" | "ReadBalances" | "ReadStatements" | "ReadTransactionsBasic" | "ReadTransactionsCredits" | "ReadTransactionsDebits" | "ReadTransactionsDetail" | "ReadCustomerData" | "ReadSBPData" | "EditSBPData" | "ReadSBPData1C" | "EditSBPData1C" | "CreatePaymentForSign" | "CreatePaymentOrder" | "ReadAcquiringData" | "MakeAcquiringOperation" | "ManageInvoiceData" | "ManageWebhookData" | "MakeCustomer" | "ManageGuarantee" | "ManageEdoData" | "ReadBiApi";
+        ConsentTypeEnum: "ReadAccountsBasic" | "ReadAccountsDetail" | "ReadBalances" | "ReadStatements" | "ReadTransactionsBasic" | "ReadTransactionsCredits" | "ReadTransactionsDebits" | "ReadTransactionsDetail" | "ReadCustomerData" | "ReadSBPData" | "EditSBPData" | "ReadSBPData1C" | "EditSBPData1C" | "CreatePaymentForSign" | "CreatePaymentOrder" | "ReadAcquiringData" | "MakeAcquiringOperation" | "ManageInvoiceData" | "ManageWebhookData" | "MakeCustomer" | "ManageGuarantee" | "ManageEdoData" | "ReadBiApi" | "ReadCustomerDataMcp" | "ReadAccountsMcp" | "ReadBalancesMcp" | "ReadStatementsMcp" | "CreatePaymentForSignMcp" | "ReadFeedbackData" | "EditFeedbackData";
         /** ContentAct */
         ContentAct: {
             /** Содержимое акта */
@@ -3306,6 +3442,7 @@ export type components = {
              * @example 300000092
              */
             customerCode: string;
+            DigitalRubleWallet?: components["schemas"]["DigitalRubleWalletModel"];
             /**
              * Организационно-правовая форма юридического лица
              * @example АО
@@ -3421,6 +3558,29 @@ export type components = {
             Links: components["schemas"]["LinkModel"];
             Meta: components["schemas"]["MetaModel"];
         };
+        /** DigitalRubleWalletModel */
+        DigitalRubleWalletModel: {
+            /**
+             * БИК банка
+             * @example 044525104
+             */
+            bankCode: string;
+            /**
+             * Время регистрации
+             * @example 2019-01-01T06:06:06.364+00:00
+             */
+            createdAt: string;
+            /**
+             * Идентификатор счета цифрового рубля
+             * @example g.ru.cbrdc.wlt.clt.cdbab25e-a448-476a-922a-bd0de7864819
+             */
+            walletId: string;
+            /**
+             * Статус счета цифрового рубля
+             * @example ACTV
+             */
+            walletStatus: string;
+        };
         /** DocumentCreateResponse */
         DocumentCreateResponse: {
             /**
@@ -3487,7 +3647,7 @@ export type components = {
          * ExternalAcquiringPaymentTypeEnum
          * @enum {string}
          */
-        ExternalAcquiringPaymentTypeEnum: "sbp" | "card" | "tinkoff" | "dolyame";
+        ExternalAcquiringPaymentTypeEnum: "sbp" | "card" | "tinkoff" | "dolyame" | "digitalRuble";
         /**
          * ExternalBalanceStaticTypeEnum
          * @description **Описание типов балансов**
@@ -3508,7 +3668,7 @@ export type components = {
          * ExternalConsentTypeEnum
          * @enum {string}
          */
-        ExternalConsentTypeEnum: "ReadAccountsBasic" | "ReadAccountsDetail" | "ReadBalances" | "ReadStatements" | "ReadTransactionsBasic" | "ReadTransactionsCredits" | "ReadTransactionsDebits" | "ReadTransactionsDetail" | "ReadCustomerData" | "ReadSBPData" | "EditSBPData" | "CreatePaymentForSign" | "CreatePaymentOrder" | "ReadAcquiringData" | "MakeAcquiringOperation" | "ManageInvoiceData" | "ManageWebhookData" | "MakeCustomer" | "ManageGuarantee" | "ManageEdoData" | "ReadBiApi";
+        ExternalConsentTypeEnum: "ReadAccountsBasic" | "ReadAccountsDetail" | "ReadBalances" | "ReadStatements" | "ReadTransactionsBasic" | "ReadTransactionsCredits" | "ReadTransactionsDebits" | "ReadTransactionsDetail" | "ReadCustomerData" | "ReadSBPData" | "EditSBPData" | "CreatePaymentForSign" | "CreatePaymentOrder" | "ReadAcquiringData" | "MakeAcquiringOperation" | "ManageInvoiceData" | "ManageWebhookData" | "MakeCustomer" | "ManageGuarantee" | "ManageEdoData" | "ReadBiApi" | "ReadCustomerDataMcp" | "ReadAccountsMcp" | "ReadBalancesMcp" | "ReadStatementsMcp" | "CreatePaymentForSignMcp" | "ReadFeedbackData" | "EditFeedbackData";
         /**
          * ExternalCreditDebitIndicatorEnum
          * @enum {string}
@@ -4235,6 +4395,17 @@ export type components = {
              */
             email?: string;
             /**
+             * Адрес электронной почты для ГИС ГМП
+             * Format: email
+             * @example ivanov@mail.com
+             */
+            gisEmail?: string;
+            /**
+             * Номер телефона для ГИС ГМП
+             * @example +79999999999
+             */
+            gisPhoneNumber?: string;
+            /**
              * ИНН за кого платят
              * @description Допустимые значения "0", 10 или 12 значное число
              * @example 5001038736
@@ -4389,6 +4560,17 @@ export type components = {
              * @example ivanov@mail.com
              */
             email?: string;
+            /**
+             * Адрес электронной почты для ГИС ГМП
+             * Format: email
+             * @example ivanov@mail.com
+             */
+            gisEmail?: string;
+            /**
+             * Номер телефона для ГИС ГМП
+             * @example +79999999999
+             */
+            gisPhoneNumber?: string;
             /**
              * ИНН лица, за которого поступит платёж
              * @description - 10-значный — для юрлиц
@@ -5959,6 +6141,7 @@ export type SchemaCustomerListResponseModel = components['schemas']['CustomerLis
 export type SchemaCustomerModel = components['schemas']['CustomerModel'];
 export type SchemaCustomerResponseModel = components['schemas']['CustomerResponseModel'];
 export type SchemaDeactivateCashboxQrCodeResponseDataModel = components['schemas']['DeactivateCashboxQrCodeResponseDataModel'];
+export type SchemaDigitalRubleWalletModel = components['schemas']['DigitalRubleWalletModel'];
 export type SchemaDocumentCreateResponse = components['schemas']['DocumentCreateResponse'];
 export type SchemaDocumentCreateResponseModel = components['schemas']['DocumentCreateResponseModel'];
 export type SchemaErrorModel = components['schemas']['ErrorModel'];

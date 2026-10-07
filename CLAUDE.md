@@ -10,7 +10,7 @@ bun run gen             # openapi-typescript → src/_generated/
 bun run build           # tsdown: ESM + CJS + DTS, subpath exports
 bun test                # unit- и contract-тесты
 bun run lint            # biome check
-bun run typecheck       # tsc --noEmit
+bun run typecheck       # TypeScript 7: SDK; tools используют TypeScript 6
 bun run spec:fetch      # скачать свежий swagger.json в specs/
 bun run spec:diff       # diff путей между openapi.json и openapi.prev.json
 bun run spec:sync       # fetch + gen + diff → .sync-report.md (для CI)
@@ -45,20 +45,20 @@ packages/tochka-sdk/
 │  │  ├─ consents.ts     # /consent/v1.0/*
 │  │  └─ webhook-mgmt.ts # /webhook/v1.0/*
 │  ├─ webhooks/          # ВХОДЯЩИЕ вебхуки от Точки
-│  │  ├─ index.ts        # verifyWebhook, discriminated union (5 типов)
+│  │  ├─ index.ts        # verifyWebhook, discriminated union + customWebhook
 │  │  └─ jwks.ts         # резолвер публичного ключа с TTL-кэшем + kid matching
 │  ├─ pay-gateway/       # Отдельный PCI-клиент с RSA-подписью тела
 │  │  ├─ client.ts       # PayGatewayClient + doRequest с double-charge guard
 │  │  ├─ signature.ts    # createBodySigner (RSA-SHA256 через WebCrypto)
-│  │  ├─ payments.ts     # платежи, capture и refund
+│  │  ├─ payments.ts     # платежи, capture, refund и восстановление возврата
 │  │  ├─ sbp.ts          # функциональные ссылки СБП
 │  │  ├─ cash-register.ts# кассовые ссылки СБП
 │  │  ├─ invoices.ts     # счета
 │  │  └─ card-tokens.ts  # операции с карточными токенами
-│  ├─ errors/index.ts    # TochkaError иерархия + TochkaNetworkError + TochkaSDKError
+│  ├─ errors/index.ts    # TochkaError, NetworkError, UnknownOutcomeError, SDKError
 │  ├─ client.ts          # TochkaClient composition root, forCustomer, sandbox
 │  └─ index.ts           # публичные exports
-└─ test/unit/            # bun test — pure functions only
+└─ test/unit/            # bun test — транспорт, runtime и контрактные проверки
 specs/
 ├─ openapi.json          # актуальный слепок основного API
 ├─ pay-gateway.json      # актуальный слепок Pay Gateway
@@ -66,7 +66,7 @@ specs/
 tools/
 ├─ fetch-spec.ts         # скачивает обе спецификации, сохраняет prev
 ├─ gen.ts                # openapi-typescript → _generated/
-├─ diff.ts               # diff путей и operationId между снимками
+├─ diff.ts               # semantic diff операций, схем и общих настроек API
 └─ sync.ts               # fetch + gen + diff одной командой (для CI)
 ```
 
@@ -79,7 +79,7 @@ tools/
 └─────────────────┬─────────────────────────────────────┘
                   │
 ┌─ Generated layer ────────────────────────────────────┐
-│ paths, operations, components (266 схем)             │
+│ paths, operations, components                       │
 │ _generated/ — РЕГЕНЕРИРУЕТСЯ, не трогать             │
 └─────────────────┬─────────────────────────────────────┘
                   │
@@ -93,11 +93,11 @@ tools/
 
 - **Все ответы Точки обёрнуты в `{ Data, Links, Meta }`**. В модулях распаковываем через `this.unwrap(data, "op")`. Для boolean-ответов (`{ Data: { result: bool } }`) — `this.unwrapBoolean(...)`.
 - **`customerCode` передаётся через заголовок**, не в теле. Для привязки к конкретной компании — `client.forCustomer(code)`. Новый клиент **переиспользует** `AuthProvider` родителя — это критично для OAuth token-кэша.
-- **Middleware порядок важен.** Регистрация: `auth → error → telemetry → timeout`.
-  `onResponse` идёт в обратном порядке, поэтому timeout очищается до telemetry
-  callback и до того, как error middleware бросит исключение.
+- **Middleware порядок важен.** Регистрация: `auth → error → timeout → telemetry`.
+  `onResponse` идёт в обратном порядке; telemetry измеряет получение заголовков,
+  а таймаут охватывает чтение тела ответа, включая потоковый API.
 - **Retry двойной**: низкоуровневый retry в `makeRetryingFetch` (5xx/network), middleware только для mapping ошибок. **AbortError никогда не ретраится** — `isAbortError` + throw.
-- **Pay Gateway: ≠ retry-on-network для подписанных путей.** Чтобы не было double-charge. У клиента 2 retry-конфига: обычный и `retryOptsForSigned` (с `retryOnNetworkError: false`).
+- **Pay Gateway: подписанные запросы не повторяются после сетевой ошибки**, включая обрыв чтения ответа. Записывающие методы по умолчанию не повторяются; неопределённый результат обозначается `TochkaUnknownOutcomeError`.
 
 ## Авторизация
 
@@ -121,7 +121,7 @@ OAuth поддерживает `mode: "client_credentials"` (S2S) и `mode: "aut
 import { verifyWebhook, WebhookVerificationError } from "@onreza/tochka-sdk/webhooks";
 const event = await verifyWebhook(rawBody);
 // event.webhookType ∈ { incomingPayment, outgoingPayment, incomingSbpPayment,
-//                       incomingSbpB2BPayment, acquiringInternetPayment }
+//                       incomingSbpB2BPayment, acquiringInternetPayment, customWebhook }
 ```
 
 `verifyWebhook` бросает `WebhookVerificationError` с `reason: "signature" | "expired" | "algorithm" | "jwt_format" | "key_fetch" | "payload_shape" | "unknown"`. По умолчанию использует module-level singleton-резолвер с кэшем — 100 параллельных вебхуков = 1 fetch к JWKS URL.
@@ -130,7 +130,7 @@ const event = await verifyWebhook(rawBody);
 
 Отдельный продукт Точки — прямой приём карт/СБП со своей формой мерчанта. Требует сертификат PCI DSS AOC, выдаётся при онбординге. API, хост и JWT-токен — отдельные.
 
-- Подписываются mutating-пути `payments`, `captures` и `refunds`; маршруты
+- Подписываются mutating-пути `payments`, `captures`, `refunds` и повтор возврата; маршруты
   берутся из официальной OpenAPI Pay Gateway.
 - Ключ — PKCS#8 PEM (PKCS#1 должен быть сконвертирован: `openssl pkcs8 -topk8 -nocrypt -in private.pem -out private_pkcs8.pem`).
 - Минимум 2048-бит, валидируется в `signature.ts`.

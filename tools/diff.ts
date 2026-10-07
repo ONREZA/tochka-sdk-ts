@@ -11,6 +11,7 @@ type Operation = {
 	path: string;
 	summary?: string;
 	value: unknown;
+	contract: unknown;
 };
 
 function asObject(value: unknown): JsonObject {
@@ -34,6 +35,9 @@ function equal(a: unknown, b: unknown): boolean {
 function collectOperations(spec: JsonObject): Map<string, Operation> {
 	const operations = new Map<string, Operation>();
 	for (const [path, methodsValue] of Object.entries(asObject(spec.paths))) {
+		const shared = Object.fromEntries(
+			Object.entries(asObject(methodsValue)).filter(([key]) => !HTTP_METHODS.has(key)),
+		);
 		for (const [method, value] of Object.entries(asObject(methodsValue))) {
 			if (!HTTP_METHODS.has(method)) continue;
 			const operation = asObject(value);
@@ -49,7 +53,15 @@ function collectOperations(spec: JsonObject): Map<string, Operation> {
 				method,
 				path,
 				...(summary !== undefined ? { summary } : {}),
-				value,
+				value: { operation: value, shared },
+				contract: {
+					operation: Object.fromEntries(
+						Object.entries(operation).filter(
+							([key]) => !["description", "summary", "tags", "externalDocs"].includes(key),
+						),
+					),
+					shared,
+				},
 			});
 		}
 	}
@@ -71,38 +83,89 @@ function setDiff(next: readonly string[], prev: readonly string[]): string[] {
 	return next.filter((item) => !previous.has(item));
 }
 
-function enumChanges(
-	next: unknown,
-	prev: unknown,
-	path = "",
-): Array<{ path: string; added: string[]; removed: string[] }> {
-	const changes: Array<{ path: string; added: string[]; removed: string[] }> = [];
-	if (Array.isArray(next) || Array.isArray(prev)) {
-		const nextItems = Array.isArray(next) ? next : [];
-		const prevItems = Array.isArray(prev) ? prev : [];
+function isReference(value: unknown): value is { $ref: string } {
+	const object = asObject(value);
+	return Object.keys(object).length === 1 && typeof object.$ref === "string";
+}
+
+function schemaChanges(next: unknown, prev: unknown, path: string): string[] {
+	if (equal(next, prev)) return [];
+	const changes: string[] = [];
+	if (Array.isArray(next) && Array.isArray(prev)) {
+		const nextItems = next;
+		const prevItems = prev;
 		for (let index = 0; index < Math.max(nextItems.length, prevItems.length); index += 1) {
 			const childPath = `${path}[${index}]`;
-			changes.push(...enumChanges(nextItems[index], prevItems[index], childPath));
+			changes.push(...schemaChanges(nextItems[index], prevItems[index], childPath));
 		}
 		return changes;
 	}
+	if (
+		!next ||
+		typeof next !== "object" ||
+		!prev ||
+		typeof prev !== "object" ||
+		Array.isArray(next) !== Array.isArray(prev)
+	) {
+		return [
+			`- \`${path}\`: изменено ${JSON.stringify(prev) ?? "отсутствует"} → ${JSON.stringify(next) ?? "отсутствует"}`,
+		];
+	}
 	const nextObject = asObject(next);
 	const prevObject = asObject(prev);
-	const nextEnum = strings(nextObject.enum);
-	const prevEnum = strings(prevObject.enum);
-	if (nextEnum.length > 0 || prevEnum.length > 0) {
-		const added = setDiff(nextEnum, prevEnum);
-		const removed = setDiff(prevEnum, nextEnum);
-		if (added.length > 0 || removed.length > 0) changes.push({ path, added, removed });
-	}
 	for (const key of new Set([...Object.keys(nextObject), ...Object.keys(prevObject)])) {
 		const nextChild = nextObject[key];
 		const prevChild = prevObject[key];
-		if (
-			(nextChild && typeof nextChild === "object") ||
-			(prevChild && typeof prevChild === "object")
+		if (equal(nextChild, prevChild)) continue;
+		if (key === "properties") {
+			const nextProperties = asObject(nextChild);
+			const prevProperties = asObject(prevChild);
+			for (const property of new Set([
+				...Object.keys(nextProperties),
+				...Object.keys(prevProperties),
+			])) {
+				const childPath = `${path}.${property}`;
+				if (!(property in prevProperties)) changes.push(`- \`${childPath}\`: добавлено поле`);
+				else if (!(property in nextProperties))
+					changes.push(`- \`${childPath}\`: удалено поле ⚠️ breaking`);
+				else
+					changes.push(
+						...schemaChanges(nextProperties[property], prevProperties[property], childPath),
+					);
+			}
+		} else if (key === "required") {
+			for (const property of setDiff(strings(nextChild), strings(prevChild)))
+				changes.push(`- \`${path}.${property}\`: поле стало обязательным ⚠️ breaking`);
+			for (const property of setDiff(strings(prevChild), strings(nextChild)))
+				changes.push(`- \`${path}.${property}\`: поле стало опциональным`);
+		} else if (
+			["oneOf", "anyOf"].includes(key) &&
+			Array.isArray(nextChild) &&
+			Array.isArray(prevChild) &&
+			nextChild.every(isReference) &&
+			prevChild.every(isReference)
 		) {
-			changes.push(...enumChanges(nextChild, prevChild, path ? `${path}.${key}` : key));
+			const nextRefs = nextChild.map((item) => item.$ref);
+			const prevRefs = prevChild.map((item) => item.$ref);
+			for (const ref of setDiff(nextRefs, prevRefs))
+				changes.push(`- \`${path}.${key}\`: добавлен вариант \`${ref}\``);
+			for (const ref of setDiff(prevRefs, nextRefs))
+				changes.push(`- \`${path}.${key}\`: удалён вариант \`${ref}\` ⚠️ breaking`);
+		} else if (key === "enum" && Array.isArray(nextChild) && Array.isArray(prevChild)) {
+			for (const value of nextChild.filter(
+				(value) => !prevChild.some((before) => equal(value, before)),
+			))
+				changes.push(
+					`- \`${path}\`: добавлено enum-значение \`${typeof value === "string" ? value : JSON.stringify(value)}\``,
+				);
+			for (const value of prevChild.filter(
+				(value) => !nextChild.some((after) => equal(value, after)),
+			))
+				changes.push(
+					`- \`${path}\`: удалено enum-значение \`${typeof value === "string" ? value : JSON.stringify(value)}\` ⚠️ breaking`,
+				);
+		} else {
+			changes.push(...schemaChanges(nextChild, prevChild, `${path}.${key}`));
 		}
 	}
 	return changes;
@@ -128,7 +191,13 @@ export function buildOpenApiDiff(current: JsonObject, previous: JsonObject): str
 	);
 	const changedOperations = [...currentOperations.values()].filter((operation) => {
 		const before = previousOperations.get(operation.key);
-		return before && !equal(operation.value, before.value);
+		return before && !equal(operation.contract, before.contract);
+	});
+	const documentedOperations = [...currentOperations.values()].filter((operation) => {
+		const before = previousOperations.get(operation.key);
+		return (
+			before && equal(operation.contract, before.contract) && !equal(operation.value, before.value)
+		);
 	});
 
 	if (addedOperations.length > 0) {
@@ -142,6 +211,55 @@ export function buildOpenApiDiff(current: JsonObject, previous: JsonObject): str
 	if (changedOperations.length > 0) {
 		sections.push(`## Изменены операции (${changedOperations.length})`);
 		sections.push(changedOperations.map(formatOperation).join("\n"));
+	}
+	if (documentedOperations.length > 0) {
+		sections.push(`## Изменена документация операций (${documentedOperations.length})`);
+		sections.push(documentedOperations.map(formatOperation).join("\n"));
+	}
+	const unlistedPaths = (spec: JsonObject) =>
+		Object.fromEntries(
+			Object.entries(asObject(spec.paths)).filter(
+				([, value]) => !Object.keys(asObject(value)).some((key) => HTTP_METHODS.has(key)),
+			),
+		);
+	const pathChanges = schemaChanges(unlistedPaths(current), unlistedPaths(previous), "paths");
+	if (pathChanges.length) {
+		sections.push("## Изменены ссылки и настройки путей");
+		sections.push(pathChanges.join("\n"));
+	}
+	const documentation = (spec: JsonObject) => ({
+		info: Object.fromEntries(
+			Object.entries(asObject(spec.info)).filter(([key]) => key !== "version"),
+		),
+		tags: spec.tags,
+		externalDocs: spec.externalDocs,
+	});
+	const documentationChanges = schemaChanges(
+		documentation(current),
+		documentation(previous),
+		"document",
+	);
+	if (documentationChanges.length) {
+		sections.push("## Изменена документация API");
+		sections.push(documentationChanges.join("\n"));
+	}
+
+	const sharedChanges = new Set<string>();
+	for (const key of new Set([...Object.keys(current), ...Object.keys(previous)])) {
+		if (["paths", "components", "info", "tags", "externalDocs"].includes(key)) continue;
+		if (!equal(current[key], previous[key])) sharedChanges.add(key);
+	}
+	for (const key of new Set([
+		...Object.keys(asObject(current.components)),
+		...Object.keys(asObject(previous.components)),
+	])) {
+		if (key === "schemas") continue;
+		if (!equal(asObject(current.components)[key], asObject(previous.components)[key]))
+			sharedChanges.add(`components.${key}`);
+	}
+	if (sharedChanges.size > 0) {
+		sections.push(`## Изменены общие настройки (${sharedChanges.size})`);
+		sections.push([...sharedChanges].map((key) => `- \`${key}\`: изменена структура`).join("\n"));
 	}
 
 	const currentSchemas = getSchemas(current);
@@ -157,54 +275,20 @@ export function buildOpenApiDiff(current: JsonObject, previous: JsonObject): str
 		sections.push(removedSchemas.map((name) => `- \`${name}\``).join("\n"));
 	}
 
-	const schemaChanges: string[] = [];
+	const changedSchemas: string[] = [];
+	let changedSchemaCount = 0;
 	for (const name of Object.keys(currentSchemas)) {
 		const next = currentSchemas[name];
 		const prev = previousSchemas[name];
 		if (prev === undefined || equal(next, prev)) continue;
 
-		const nextObject = asObject(next);
-		const prevObject = asObject(prev);
-		const addedProperties = setDiff(
-			Object.keys(asObject(nextObject.properties)),
-			Object.keys(asObject(prevObject.properties)),
-		);
-		const removedProperties = setDiff(
-			Object.keys(asObject(prevObject.properties)),
-			Object.keys(asObject(nextObject.properties)),
-		);
-		const addedRequired = setDiff(strings(nextObject.required), strings(prevObject.required));
-		const removedRequired = setDiff(strings(prevObject.required), strings(nextObject.required));
-		const changes = enumChanges(next, prev);
-
-		for (const property of addedProperties)
-			schemaChanges.push(`- \`${name}.${property}\`: добавлено поле`);
-		for (const property of removedProperties)
-			schemaChanges.push(`- \`${name}.${property}\`: удалено поле ⚠️ breaking`);
-		for (const property of addedRequired)
-			schemaChanges.push(`- \`${name}.${property}\`: поле стало обязательным ⚠️ breaking`);
-		for (const property of removedRequired)
-			schemaChanges.push(`- \`${name}.${property}\`: поле стало опциональным`);
-		for (const change of changes) {
-			const target = change.path ? `${name}.${change.path}` : name;
-			for (const value of change.added)
-				schemaChanges.push(`- \`${target}\`: добавлено enum-значение \`${value}\``);
-			for (const value of change.removed)
-				schemaChanges.push(`- \`${target}\`: удалено enum-значение \`${value}\` ⚠️ breaking`);
-		}
-		if (
-			addedProperties.length === 0 &&
-			removedProperties.length === 0 &&
-			addedRequired.length === 0 &&
-			removedRequired.length === 0 &&
-			changes.length === 0
-		) {
-			schemaChanges.push(`- \`${name}\`: изменена структура`);
-		}
+		const changes = schemaChanges(next, prev, name);
+		if (changes.length > 0) changedSchemaCount += 1;
+		changedSchemas.push(...changes);
 	}
-	if (schemaChanges.length > 0) {
-		sections.push(`## Изменены схемы (${schemaChanges.length})`);
-		sections.push(schemaChanges.join("\n"));
+	if (changedSchemas.length > 0) {
+		sections.push(`## Изменены схемы (${changedSchemaCount})`);
+		sections.push(changedSchemas.join("\n"));
 	}
 
 	if (sections.length === 1) sections.push("Изменений API-контракта нет.");
