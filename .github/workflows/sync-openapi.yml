@@ -32,8 +32,18 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
+      - name: Inspect current TLS chains
+        run: |
+          for host in enter.tochka.com api.tochka.com; do
+            timeout 30 openssl s_client -connect "$host:443" -servername "$host" \
+              -showcerts -verify_return_error -verify_hostname "$host" \
+              -CAfile tools/certs/russian-trusted-root-ca.pem </dev/null
+          done
+
       - name: Sync spec and regenerate types
         id: sync
+        env:
+          NODE_EXTRA_CA_CERTS: ${{ github.workspace }}/tools/certs/russian-trusted-root-ca.pem
         run: |
           set +e
           bun run spec:sync
@@ -50,7 +60,7 @@ jobs:
         run: bun run verify
 
       - name: Create Pull Request
-        if: steps.sync.outputs.no_changes != 'true'
+        if: github.ref == 'refs/heads/main' && steps.sync.outputs.no_changes != 'true'
         uses: peter-evans/create-pull-request@v8
         with:
           branch: sync/openapi
