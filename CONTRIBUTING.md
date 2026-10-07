@@ -77,9 +77,26 @@ feat(tochka-sdk)!: split WebhookVerificationError into typed subclasses
 Cron-workflow `sync-openapi.yml` раз в сутки сам создаёт PR, если схема Точки изменилась. Вручную:
 
 ```bash
-bun run spec:sync   # fetch + gen + diff → .sync-report.md
+NODE_EXTRA_CA_CERTS="$PWD/tools/certs/russian-trusted-root-ca.pem" bun run spec:sync
 bun run verify
 ```
+
+Оба endpoint Точки используют TLS-сертификаты Минцифры. `NODE_EXTRA_CA_CERTS`
+добавляет проверенный корневой CA к стандартному trust store Bun при запуске
+процесса. В CI он задан только для шага sync; системное хранилище runner и
+опубликованный SDK не изменяются. Для `spec:fetch` используйте ту же переменную.
+Источник, fingerprint и порядок обновления CA: [tools/certs/README.md](tools/certs/README.md).
+Не отключайте проверку TLS. Если цепочка, срок действия или имя хоста неверны,
+sync должен завершаться ошибкой; проблему необходимо исправить на стороне endpoint.
+
+GitHub отключает scheduled workflow публичного репозитория после 60 дней без
+активности. В Actions → Sync OpenAPI включите workflow через **Enable workflow**,
+затем **Run workflow**. Это отдельная настройка GitHub, исправление CA её не заменяет.
+
+Если обновлённая спецификация требует изменений SDK, sync создаёт draft PR со
+ссылкой на неуспешную проверку. Сам workflow сохраняет статус failure; перед merge
+доработайте SDK и добейтесь успешного `bun run verify`. Запуски с других веток
+проверяют sync, но не обновляют bot PR.
 
 ## Поддержка
 
