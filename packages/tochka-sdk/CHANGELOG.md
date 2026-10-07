@@ -4,6 +4,13 @@ Changelog ведётся автоматически через
 [release-please](https://github.com/googleapis/release-please) на основе
 [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.3.0](https://github.com/ONREZA/tochka-sdk-ts/compare/v0.2.1...v0.3.0) (2026-10-07)
+
+
+### ✨ Features
+
+* **tochka-sdk:** sync api and secure ci ([20375c1](https://github.com/ONREZA/tochka-sdk-ts/commit/20375c167e86f872671958a0eb0dabf84ded60b4))
+
 ## [0.2.1](https://github.com/ONREZA/tochka-sdk-ts/compare/v0.2.0...v0.2.1) (2026-07-27)
 
 
