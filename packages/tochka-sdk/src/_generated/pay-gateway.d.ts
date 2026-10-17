@@ -507,6 +507,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/merchant-notifications-url/token-deactivation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Уведомление о деактивации токена */
+        post: operations["tokenDeactivationNotification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/merchant-notifications-url/tokenization-decision": {
         parameters: {
             query?: never;
@@ -919,6 +936,21 @@ export type components = {
             rrn?: string;
             /** @enum {string} */
             type: "CARD";
+        };
+        CardTokenDeactivationResponseDto: components["schemas"]["TokenDeactivationResponseDto"] & {
+            /**
+             * @description Идентификатор пользователя
+             * @example E268443E43D93DAB7EBEF303BBE9642F
+             */
+            account: string;
+            /** Format: uuid */
+            token: string;
+            /**
+             * @description Идентификатор транзакции, в рамках которой была осуществлена привязка данной карты.
+             *      Возвращается при инициировании покупателем оплаты c сохранением реквизитов (CREDENTIAL_CAPTURED)
+             * @example 872635123
+             */
+            trn?: string;
         };
         CardTokenizationCredentials: {
             type: string;
@@ -2322,6 +2354,37 @@ export type components = {
              */
             paReq: string;
         };
+        /** @description Уведомление о деактивации токена */
+        TokenDeactivationNotification: {
+            /**
+             * @description Дата создания уведомления
+             * @example 2025-01-01T01:23:45+03:00
+             */
+            createdAt: string;
+            /**
+             * @description Тип уведомления
+             * @enum {string}
+             */
+            event: "token-deactivated";
+            payload: components["schemas"]["CardTokenDeactivationResponseDto"];
+            /**
+             * @description Тип тела уведомления
+             * @enum {string}
+             */
+            payloadType: "card-token-deactivation";
+            /**
+             * @description ID Сайта
+             * @example tochka-site-00
+             */
+            siteUid: string;
+            /**
+             * @description Версия формата уведомления
+             * @enum {string}
+             */
+            version: "1.0";
+        };
+        /** @description Тело уведомления */
+        TokenDeactivationResponseDto: Record<string, never>;
         /** @description Параметры для обработки операций с сохраненными картами */
         TokenizationCredentialsResult: {
             token?: components["schemas"]["CardTokenResult"];
@@ -2475,7 +2538,10 @@ export type components = {
          */
         refundUid: string;
         /**
-         * @description Электронная подпись тела запроса
+         * @description Электронная подпись тела запроса.
+         *
+         *
+         *     **Заголовок является обязательным если вы предоставляете услуги технологического посредника**
          * @example Wc6UyGaSVfx7qPxHH...cqhVxPaauEe8FsUQQ+/9de+Kvl1Y9Q==
          */
         signature: string;
@@ -2507,6 +2573,7 @@ export type SchemaCardConfig = components['schemas']['CardConfig'];
 export type SchemaCardPaymentMethod = components['schemas']['CardPaymentMethod'];
 export type SchemaCardPaymentMethodResult = components['schemas']['CardPaymentMethodResult'];
 export type SchemaCardRefundMethodResultDto = components['schemas']['CardRefundMethodResultDTO'];
+export type SchemaCardTokenDeactivationResponseDto = components['schemas']['CardTokenDeactivationResponseDto'];
 export type SchemaCardTokenizationCredentials = components['schemas']['CardTokenizationCredentials'];
 export type SchemaCardTokenOperationDto = components['schemas']['CardTokenOperationDTO'];
 export type SchemaCardTokenResult = components['schemas']['CardTokenResult'];
@@ -2602,6 +2669,8 @@ export type SchemaSbpTokenPaymentMethodResult = components['schemas']['SBPTokenP
 export type SchemaSbpTokenRefundMethodResultDto = components['schemas']['SBPTokenRefundMethodResultDTO'];
 export type SchemaThreeDsCompleteRequestDto = components['schemas']['ThreeDSCompleteRequestDTO'];
 export type SchemaThreeDsRequirements = components['schemas']['ThreeDSRequirements'];
+export type SchemaTokenDeactivationNotification = components['schemas']['TokenDeactivationNotification'];
+export type SchemaTokenDeactivationResponseDto = components['schemas']['TokenDeactivationResponseDto'];
 export type SchemaTokenizationCredentialsResult = components['schemas']['TokenizationCredentialsResult'];
 export type SchemaTokenizationDecisionNotification = components['schemas']['TokenizationDecisionNotification'];
 export type SchemaTokenizationServiceDetailsDto = components['schemas']['TokenizationServiceDetailsDTO'];
@@ -3534,10 +3603,13 @@ export interface operations {
                  */
                 Authorization: components["parameters"]["authorizationHeader"];
                 /**
-                 * @description Электронная подпись тела запроса
+                 * @description Электронная подпись тела запроса.
+                 *
+                 *
+                 *     **Заголовок является обязательным если вы предоставляете услуги технологического посредника**
                  * @example Wc6UyGaSVfx7qPxHH...cqhVxPaauEe8FsUQQ+/9de+Kvl1Y9Q==
                  */
-                Signature: components["parameters"]["signature"];
+                Signature?: components["parameters"]["signature"];
             };
             path: {
                 /** @description Версия API */
@@ -4207,10 +4279,13 @@ export interface operations {
                  */
                 Authorization: components["parameters"]["authorizationHeader"];
                 /**
-                 * @description Электронная подпись тела запроса
+                 * @description Электронная подпись тела запроса.
+                 *
+                 *
+                 *     **Заголовок является обязательным если вы предоставляете услуги технологического посредника**
                  * @example Wc6UyGaSVfx7qPxHH...cqhVxPaauEe8FsUQQ+/9de+Kvl1Y9Q==
                  */
-                Signature: components["parameters"]["signature"];
+                Signature?: components["parameters"]["signature"];
             };
             path: {
                 /** @description Версия API */
@@ -5117,10 +5192,13 @@ export interface operations {
                  */
                 Authorization: components["parameters"]["authorizationHeader"];
                 /**
-                 * @description Электронная подпись тела запроса
+                 * @description Электронная подпись тела запроса.
+                 *
+                 *
+                 *     **Заголовок является обязательным если вы предоставляете услуги технологического посредника**
                  * @example Wc6UyGaSVfx7qPxHH...cqhVxPaauEe8FsUQQ+/9de+Kvl1Y9Q==
                  */
-                Signature: components["parameters"]["signature"];
+                Signature?: components["parameters"]["signature"];
             };
             path: {
                 /** @description Версия API */
@@ -5577,10 +5655,13 @@ export interface operations {
                  */
                 Authorization: components["parameters"]["authorizationHeader"];
                 /**
-                 * @description Электронная подпись тела запроса
+                 * @description Электронная подпись тела запроса.
+                 *
+                 *
+                 *     **Заголовок является обязательным если вы предоставляете услуги технологического посредника**
                  * @example Wc6UyGaSVfx7qPxHH...cqhVxPaauEe8FsUQQ+/9de+Kvl1Y9Q==
                  */
-                Signature: components["parameters"]["signature"];
+                Signature?: components["parameters"]["signature"];
             };
             path: {
                 /** @description Версия API */
@@ -8316,6 +8397,28 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RefundUpdatedNotification"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    tokenDeactivationNotification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenDeactivationNotification"];
             };
         };
         responses: {
