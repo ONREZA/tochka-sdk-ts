@@ -3,7 +3,7 @@
   "info": {
     "title": "Tochka.API",
     "description": "Подключая API, вы соглашаетесь на условия [оферты](https://tochka.com/links/offer-open-api)\n\n[Скачать](https://enter.tochka.com/doc/openapi/swagger.json) OpenAPI спецификацию\n",
-    "version": "v1.101.0-stable"
+    "version": "v1.102.0-stable"
   },
   "servers": [
     {
