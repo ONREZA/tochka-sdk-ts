@@ -3,7 +3,7 @@
   "info": {
     "title": "Tochka.API",
     "description": "Подключая API, вы соглашаетесь на условия [оферты](https://tochka.com/links/offer-open-api)\n\n[Скачать](https://enter.tochka.com/doc/openapi/swagger.json) OpenAPI спецификацию\n",
-    "version": "v1.101.0-stable"
+    "version": "v1.102.2-stable"
   },
   "servers": [
     {
@@ -7907,7 +7907,7 @@
             ]
           },
           "Client": {
-            "$ref": "#/components/schemas/ReceiptClientModel",
+            "$ref": "#/components/schemas/ReceiptClientResponseModel",
             "title": "Данные покупателя"
           },
           "Items": {
@@ -8385,7 +8385,7 @@
             ]
           },
           "Client": {
-            "$ref": "#/components/schemas/ReceiptClientModel",
+            "$ref": "#/components/schemas/ReceiptClientResponseModel",
             "title": "Данные покупателя"
           },
           "Items": {
@@ -8525,7 +8525,7 @@
             ]
           },
           "Client": {
-            "$ref": "#/components/schemas/ReceiptClientModel",
+            "$ref": "#/components/schemas/ReceiptClientResponseModel",
             "title": "Данные покупателя"
           },
           "Items": {
@@ -9179,7 +9179,7 @@
             ]
           },
           "Client": {
-            "$ref": "#/components/schemas/ReceiptClientModel",
+            "$ref": "#/components/schemas/ReceiptClientResponseModel",
             "title": "Данные покупателя"
           },
           "Items": {
@@ -13902,6 +13902,36 @@
           "email"
         ],
         "title": "ReceiptClientModel"
+      },
+      "ReceiptClientResponseModel": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Для юрлица — название организации, для ИП и физического лица — ФИО",
+            "examples": [
+              "Иванов Иван Иванович"
+            ]
+          },
+          "email": {
+            "type": "string",
+            "title": "Email покупателя, на который будет отправлен чек",
+            "examples": [
+              "ivanov@mail.com"
+            ]
+          },
+          "phone": {
+            "type": "string",
+            "title": "Телефон пользователя для отправки чека.",
+            "examples": [
+              "+7999999999"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "ReceiptClientResponseModel"
       },
       "ReceiptItemModel-Input": {
         "properties": {
