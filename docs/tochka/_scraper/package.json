@@ -1,13 +1,13 @@
 {
   "name": "tochka-scrape",
-  "module": "index.ts",
+  "module": "scrape.ts",
   "type": "module",
   "private": true,
-  "devDependencies": {
-    "@types/bun": "1.4.2"
+  "scripts": {
+    "scrape": "bun scrape.ts"
   },
-  "peerDependencies": {
-    "typescript": "7.0.2"
+  "devDependencies": {
+    "@types/bun": "1.4.4"
   },
   "dependencies": {
     "cheerio": "1.2.0",

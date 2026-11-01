@@ -17,13 +17,7 @@ type Schemas = components["schemas"];
 
 /** Источник причины отклонения операции. */
 export type PayGatewayReasonSource =
-	| "PROCESSING"
-	| "ACQUIRER"
-	| "PAY_SYSTEM"
-	| "ISSUER"
-	| "MPI"
-	| "FRAUD"
-	| (string & {});
+	"PROCESSING" | "ACQUIRER" | "PAY_SYSTEM" | "ISSUER" | "MPI" | "FRAUD" | (string & {});
 
 /** Коды отклонения, применимые к СБП-операциям. */
 export type PayGatewaySbpReasonCode =
@@ -64,6 +58,7 @@ export type SbpTokenDeclinedWebhook = Omit<TokenizationNotification, "event" | "
 export type PaymentUpdatedWebhook = Schemas["PaymentUpdatedNotification"];
 export type CaptureUpdatedWebhook = Schemas["CaptureUpdatedNotification"];
 export type RefundUpdatedWebhook = Schemas["RefundUpdatedNotification"];
+export type TokenDeactivatedWebhook = Schemas["TokenDeactivationNotification"];
 
 /** Дискриминированный union всех webhook-событий Pay Gateway. */
 export type PayGatewayWebhookEvent =
@@ -71,7 +66,8 @@ export type PayGatewayWebhookEvent =
 	| SbpTokenDeclinedWebhook
 	| PaymentUpdatedWebhook
 	| CaptureUpdatedWebhook
-	| RefundUpdatedWebhook;
+	| RefundUpdatedWebhook
+	| TokenDeactivatedWebhook;
 
 export type PayGatewayWebhookEventName = PayGatewayWebhookEvent["event"];
 
@@ -81,6 +77,7 @@ const PAYLOAD_TYPES: Readonly<Record<PayGatewayWebhookEventName, string>> = {
 	"payment-updated": "payment",
 	"capture-updated": "capture",
 	"refund-updated": "refund",
+	"token-deactivated": "card-token-deactivation",
 };
 
 const PAYMENT_METHOD_TYPES = [
@@ -119,6 +116,9 @@ export async function verifyPayGatewayWebhook(
 	} else if (eventName === "sbp-token-declined") {
 		assertEnum(payload.payload, "status", ["REJECTED"]);
 		assertStrings(payload.payload, ["qrcId", "metadata"]);
+	} else if (eventName === "token-deactivated") {
+		assertStrings(payload.payload, ["account", "token"]);
+		assertOptionalString(payload.payload, "trn");
 	} else if (eventName === "capture-updated") {
 		assertString(payload, "paymentUid");
 		assertOptionalString(payload, "invoiceUid");

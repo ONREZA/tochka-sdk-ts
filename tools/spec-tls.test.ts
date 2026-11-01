@@ -144,7 +144,7 @@ test("sync trusts the reviewed CA only in the sync step", async () => {
 	expect(sync?.env?.NODE_EXTRA_CA_CERTS?.replace(/^\$\{\{ github\.workspace \}\}/, ROOT)).toBe(
 		CA_PATH,
 	);
-	for (const step of workflow.jobs.sync.steps.filter((step) => step.id !== "sync")) {
+	for (const step of workflow.jobs.sync.steps.filter((candidate) => candidate.id !== "sync")) {
 		expect(step.env?.NODE_EXTRA_CA_CERTS).toBeUndefined();
 	}
 	const certificate = new X509Certificate(await readFile(CA_PATH));

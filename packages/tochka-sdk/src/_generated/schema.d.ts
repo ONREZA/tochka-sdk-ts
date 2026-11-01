@@ -1789,7 +1789,7 @@ export type components = {
              */
             amount: number;
             /** Данные покупателя */
-            Client: components["schemas"]["ReceiptClientModel"];
+            Client: components["schemas"]["ReceiptClientResponseModel"];
             /**
              * Идентификатор покупателя
              * @example fedac807-078d-45ac-a43b-5c01c57edbf8
@@ -2048,7 +2048,7 @@ export type components = {
              */
             amount: number;
             /** Данные покупателя */
-            Client: components["schemas"]["ReceiptClientModel"];
+            Client: components["schemas"]["ReceiptClientResponseModel"];
             /**
              * Идентификатор покупателя
              * @example fedac807-078d-45ac-a43b-5c01c57edbf8
@@ -2127,7 +2127,7 @@ export type components = {
              */
             amount: number;
             /** Данные покупателя */
-            Client?: components["schemas"]["ReceiptClientModel"];
+            Client?: components["schemas"]["ReceiptClientResponseModel"];
             /** Информация о карте плательщика */
             CofToken?: components["schemas"]["CofTokenModel"];
             /**
@@ -2458,7 +2458,7 @@ export type components = {
              */
             amount: number;
             /** Данные покупателя */
-            Client?: components["schemas"]["ReceiptClientModel"];
+            Client?: components["schemas"]["ReceiptClientResponseModel"];
             /** Информация о карте плательщика */
             CofToken?: components["schemas"]["CofTokenModel"];
             /**
@@ -5029,6 +5029,24 @@ export type components = {
              */
             phone?: string;
         };
+        /** ReceiptClientResponseModel */
+        ReceiptClientResponseModel: {
+            /**
+             * Email покупателя, на который будет отправлен чек
+             * @example ivanov@mail.com
+             */
+            email: string;
+            /**
+             * Для юрлица — название организации, для ИП и физического лица — ФИО
+             * @example Иванов Иван Иванович
+             */
+            name?: string;
+            /**
+             * Телефон пользователя для отправки чека.
+             * @example +7999999999
+             */
+            phone?: string;
+        };
         /** ReceiptItemModel */
         "ReceiptItemModel-Input": {
             /**
@@ -6223,6 +6241,7 @@ export type SchemaQrCodeRequestParams = components['schemas']['QRCodeRequestPara
 export type SchemaQrCodeResponseModel = components['schemas']['QRCodeResponseModel'];
 export type SchemaQrTypeEnum = components['schemas']['QrTypeEnum'];
 export type SchemaReceiptClientModel = components['schemas']['ReceiptClientModel'];
+export type SchemaReceiptClientResponseModel = components['schemas']['ReceiptClientResponseModel'];
 export type SchemaReceiptItemModelInput = components['schemas']['ReceiptItemModel-Input'];
 export type SchemaReceiptItemModelOutput = components['schemas']['ReceiptItemModel-Output'];
 export type SchemaReceiptItemResponseModel = components['schemas']['ReceiptItemResponseModel'];

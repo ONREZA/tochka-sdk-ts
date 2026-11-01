@@ -12,9 +12,7 @@ export type SbpFunctionalLinkPaymentToken = Schemas["QRCodeTokenCreationParamsDT
 export type SbpQrcIdType = "NSPK" | "MERCHANT";
 
 export type CreateSbpFunctionalLinkRequest = (
-	| Schemas["QRCodeDynamic"]
-	| Schemas["QRCodeStatic"]
-	| Schemas["QRCodeToken"]
+	Schemas["QRCodeDynamic"] | Schemas["QRCodeStatic"] | Schemas["QRCodeToken"]
 ) & {
 	/** Идентификатор сайта мерчанта; уходит в path, не в тело. */
 	siteUid: string;

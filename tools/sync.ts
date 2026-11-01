@@ -113,7 +113,9 @@ async function main() {
 			result.status === "rejected" ? [result.reason] : [],
 		);
 		if (failures.length)
-			throw new AggregateError([error, ...failures], "Sync failed and rollback was incomplete");
+			throw new AggregateError([error, ...failures], "Sync failed and rollback was incomplete", {
+				cause: error,
+			});
 		throw error;
 	}
 	console.log(`✓ Wrote ${REPORT_PATH}`);

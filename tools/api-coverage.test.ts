@@ -98,6 +98,7 @@ const PAY_GATEWAY_CALLBACKS = [
 	"captureNotification",
 	"paymentNotification",
 	"refundNotification",
+	"tokenDeactivationNotification",
 	"tokenizationDecisionNotification",
 ] as const;
 
@@ -197,11 +198,10 @@ test("Pay Gateway wrappers send the OpenAPI method, encoded path, Data and Signa
 				expect(body.Data.siteUid, operation.operationId).toBeUndefined();
 			} else expect(request.init.body, operation.operationId).toBeUndefined();
 			const signature = new Headers(request.init.headers).get("Signature");
-			const requiresSignature = parameters(spec, operation).some(
-				(parameter) =>
-					parameter.in === "header" && parameter.name === "Signature" && parameter.required,
+			const declaresSignature = parameters(spec, operation).some(
+				(parameter) => parameter.in === "header" && parameter.name === "Signature",
 			);
-			if (requiresSignature) {
+			if (declaresSignature) {
 				expect(signature, operation.operationId).toBeDefined();
 				expect(
 					await crypto.subtle.verify(
@@ -236,8 +236,7 @@ test("Pay Gateway Signature headers require a key before any request is sent", a
 			if (!HTTP_METHODS.has(method)) continue;
 			if (
 				!parameters(spec, operation).some(
-					(parameter) =>
-						parameter.in === "header" && parameter.name === "Signature" && parameter.required,
+					(parameter) => parameter.in === "header" && parameter.name === "Signature",
 				)
 			)
 				continue;

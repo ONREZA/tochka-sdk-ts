@@ -1,11 +1,7 @@
 import { OAuthClient, type OAuthClientOptions, type TokenResponse } from "./oauth-client.js";
 import type { AuthProvider } from "./types.js";
 
-export type {
-	AuthorizeUrlParams,
-	OAuthClientOptions,
-	TokenResponse,
-} from "./oauth-client.js";
+export type { AuthorizeUrlParams, OAuthClientOptions, TokenResponse } from "./oauth-client.js";
 export {
 	DEFAULT_AUTH_SERVER,
 	DEFAULT_SCOPES,

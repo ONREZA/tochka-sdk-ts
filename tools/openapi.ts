@@ -80,7 +80,7 @@ export function serializeOpenApi(document: OpenApiDocument): string {
 
 const PAYLOAD_KEYS = new Set(["example", "examples", "default", "enum", "const"]);
 
-function visitSchemas(value: unknown, visit: (schema: Record<string, unknown>) => void) {
+function visitSchemas(document: unknown, visit: (schema: Record<string, unknown>) => void) {
 	function schema(value: unknown) {
 		if (!isRecord(value)) return;
 		visit(value);
@@ -107,8 +107,8 @@ function visitSchemas(value: unknown, visit: (schema: Record<string, unknown>) =
 		for (const key of ["allOf", "oneOf", "anyOf", "prefixItems"])
 			if (Array.isArray(value[key])) for (const child of value[key]) schema(child);
 	}
-	if (!value || typeof value !== "object") return;
-	for (const [key, child] of Object.entries(value)) {
+	if (!document || typeof document !== "object") return;
+	for (const [key, child] of Object.entries(document)) {
 		if (key === "schema") schema(child);
 		else if (key === "schemas" && isRecord(child))
 			for (const entry of Object.values(child)) schema(entry);
@@ -143,6 +143,22 @@ export function normalizePayGatewaySpec(document: OpenApiDocument): OpenApiDocum
 		}
 		return target;
 	}
+	// An unconstrained allOf base must not become Record<string, never> and reject child fields.
+	visitSchemas(normalized, (schema) => {
+		if (!Array.isArray(schema.allOf)) return;
+		for (const part of schema.allOf) {
+			const base =
+				isRecord(part) && typeof part.$ref === "string" && part.$ref.startsWith("#/")
+					? resolveRef(part.$ref)
+					: part;
+			if (
+				isRecord(base) &&
+				base.type === "object" &&
+				Object.keys(base).every((key) => ["type", "title", "description"].includes(key))
+			)
+				base.additionalProperties = true;
+		}
+	});
 	function collect(value: unknown, nodes: Set<object>, namedSchemas = false) {
 		if (!value || typeof value !== "object" || nodes.has(value)) return;
 		nodes.add(value);

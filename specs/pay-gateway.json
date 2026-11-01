@@ -16,7 +16,7 @@
       "description": "Методы для проведения платежей. \n\nДля использования методов приема платежей с передачей карточных данных вам необходимо подтвердить соответствие стандарту PCI DSS. \n\nСтандарт **PCI Data Security Standard (PCI DSS)** — это международный стандарт безопасности, созданный специально для защиты данных платежных карт. Он позволяет защитить организацию от инцидентов безопасности и&nbsp;обеспечить необходимый уровень защищенности во всей платежной системе."
     },
     {
-      "name": "[WIP] Платёж через форму банка",
+      "name": "Платёж через форму банка",
       "description": "Раздел находится в разработке. До выхода финальной версии обратная совместимость API не гарантируется."
     },
     {
@@ -61,6 +61,30 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/TokenizationDecisionNotification"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/merchant-notifications-url/token-deactivation": {
+      "post": {
+        "tags": [
+          "Вебхуки"
+        ],
+        "summary": "Уведомление о деактивации токена",
+        "operationId": "tokenDeactivationNotification",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenDeactivationNotification"
               }
             }
           },
@@ -3067,7 +3091,7 @@
     "/{apiVersion}/sites/{siteUid}/invoices": {
       "post": {
         "tags": [
-          "[WIP] Платёж через форму банка"
+          "Платёж через форму банка"
         ],
         "summary": "Создание счёта на оплату",
         "description": "Создать счёт на оплату",
@@ -3302,7 +3326,7 @@
     "/{apiVersion}/sites/{siteUid}/invoices/{invoiceUid}/cancel": {
       "post": {
         "tags": [
-          "[WIP] Платёж через форму банка"
+          "Платёж через форму банка"
         ],
         "summary": "Отмена счёта",
         "description": "Отменить ранее созданный счёт",
@@ -5820,7 +5844,7 @@
     "/{apiVersion}/sites/{siteUid}/invoices/{invoiceUid}": {
       "get": {
         "tags": [
-          "[WIP] Платёж через форму банка"
+          "Платёж через форму банка"
         ],
         "summary": "Статус счёта",
         "description": "Получить информацию о счёте",
@@ -10158,20 +10182,20 @@
         ],
         "type": "object",
         "properties": {
-          "status": {
+          "metadata": {
             "type": "string",
-            "description": "Статус привязки счёта",
-            "example": "ACCEPTED"
+            "description": "Строка с json, содержащим дополнительные поля с произвольной информацией.\n Пример формата: `\"{\\\"property1\\\": \\\"string\\\"}\"`",
+            "example": "{\"key1\":\"value1\",\"key2\":\"value2\"}"
           },
           "merchantQrcId": {
             "pattern": "^[0-9a-zA-Z-]{1,64}$",
             "type": "string",
             "description": "Уникальный идентификатор Универсального платёжного кода в информационной системе ТСП"
           },
-          "metadata": {
+          "status": {
             "type": "string",
-            "description": "Строка с json, содержащим дополнительные поля с произвольной информацией.\n Пример формата: `\"{\\\"property1\\\": \\\"string\\\"}\"`",
-            "example": "{\"key1\":\"value1\",\"key2\":\"value2\"}"
+            "description": "Статус привязки счёта",
+            "example": "ACCEPTED"
           },
           "qrcId": {
             "maxLength": 32,
@@ -10240,6 +10264,95 @@
           }
         },
         "description": "Уведомление о результате выполнения привязки счёта"
+      },
+      "CardTokenDeactivationResponseDto": {
+        "required": [
+          "account",
+          "token"
+        ],
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TokenDeactivationResponseDto"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "token": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "account": {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string",
+                "description": "Идентификатор пользователя",
+                "example": "E268443E43D93DAB7EBEF303BBE9642F"
+              },
+              "trn": {
+                "type": "string",
+                "description": "Идентификатор транзакции, в рамках которой была осуществлена привязка данной карты. \n Возвращается при инициировании покупателем оплаты c сохранением реквизитов (CREDENTIAL_CAPTURED)",
+                "example": "872635123"
+              }
+            }
+          }
+        ]
+      },
+      "TokenDeactivationNotification": {
+        "required": [
+          "createdAt",
+          "event",
+          "payload",
+          "payloadType",
+          "siteUid",
+          "version"
+        ],
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "Версия формата уведомления",
+            "enum": [
+              "1.0"
+            ]
+          },
+          "siteUid": {
+            "type": "string",
+            "description": "ID Сайта",
+            "example": "tochka-site-00"
+          },
+          "event": {
+            "type": "string",
+            "description": "Тип уведомления",
+            "enum": [
+              "token-deactivated"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Дата создания уведомления",
+            "example": "2025-01-01T01:23:45+03:00"
+          },
+          "payloadType": {
+            "type": "string",
+            "description": "Тип тела уведомления",
+            "enum": [
+              "card-token-deactivation"
+            ]
+          },
+          "payload": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CardTokenDeactivationResponseDto"
+              }
+            ]
+          }
+        },
+        "description": "Уведомление о деактивации токена"
+      },
+      "TokenDeactivationResponseDto": {
+        "type": "object",
+        "description": "Тело уведомления"
       },
       "RefundUpdatedNotification": {
         "required": [
@@ -10788,8 +10901,8 @@
       "signature": {
         "name": "Signature",
         "in": "header",
-        "description": "Электронная подпись тела запроса",
-        "required": true,
+        "description": "Электронная подпись тела запроса.\n\n\n**Заголовок является обязательным если вы предоставляете услуги технологического посредника**",
+        "required": false,
         "schema": {
           "type": "string"
         },
@@ -10827,7 +10940,7 @@
       "name": "Методы",
       "tags": [
         "Платёж через форму мерчанта",
-        "[WIP] Платёж через форму банка",
+        "Платёж через форму банка",
         "Завершение аутентификации",
         "Подтверждение",
         "Возвраты",

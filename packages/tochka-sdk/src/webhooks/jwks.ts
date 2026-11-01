@@ -17,9 +17,7 @@ export const TOCHKA_WEBHOOK_JWKS_URL =
  * поддерживается с выбором ключа по `kid` из JWT header.
  */
 export type WebhookKeySource =
-	| { url?: string; cacheMaxAgeMs?: number }
-	| { key: WebhookVerificationKey }
-	| { jwk: JWK };
+	{ url?: string; cacheMaxAgeMs?: number } | { key: WebhookVerificationKey } | { jwk: JWK };
 
 export type WebhookVerificationKey = CryptoKey | KeyObject | JWK | Uint8Array;
 

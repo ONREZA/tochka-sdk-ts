@@ -7,9 +7,7 @@ type Schemas = components["schemas"];
 export type PayGatewayAmount = Schemas["PaymentAmount"];
 export type ThreeDsRequirement = Schemas["ThreeDSRequirements"];
 export type TokenizationCredentials =
-	| Schemas["CitCredentialOnFile"]
-	| Schemas["CredentialCaptured"]
-	| Schemas["MitCredentialOnFile"];
+	Schemas["CitCredentialOnFile"] | Schemas["CredentialCaptured"] | Schemas["MitCredentialOnFile"];
 export type TokenizationCredentialsType = TokenizationCredentials["type"];
 export type CardPaymentMethod = Schemas["CardPaymentMethod"];
 export type SavedCardPaymentMethod = Schemas["SavedCardPaymentMethod"];
