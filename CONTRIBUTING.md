@@ -72,7 +72,7 @@ feat(tochka-sdk)!: split WebhookVerificationError into typed subclasses
 2. Код + тесты + conventional commits.
 3. `bun run verify` должен пройти.
 4. PR в `main`. CI повторит проверку, проверит переносимость типов и импорты в
-   поддерживаемых Node/Deno runtime.
+   Node и Bun. Пакет выпускается только как ESM.
 
 ## Релизы
 
@@ -116,7 +116,7 @@ GitHub отключает scheduled workflow публичного репозит
 проверяют sync, но не обновляют bot PR.
 
 Защита `main` требует PR, актуальную базовую ветку и успешные проверки `verify`,
-`Deno`, `Lint Commit Messages`. Force-push и удаление `main` запрещены; обходов
+`Lint Commit Messages`. Force-push и удаление `main` запрещены; обходов
 для администраторов и ботов нет. Для слияния используется squash.
 CI проверяет заголовок PR как Conventional Commit и повторяется при его
 редактировании: этот заголовок становится заголовком squash-коммита.

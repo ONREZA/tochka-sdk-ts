@@ -33,32 +33,6 @@ jobs:
       - name: Verify repository
         run: bun run verify
 
-  deno-runtime:
-    name: Deno
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: package.json
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: "24"
-
-      - uses: denoland/setup-deno@v2
-
-      - run: bun install --frozen-lockfile
-      - run: bun run build
-      - run: |
-          deno eval '
-            const entries = ["index", "webhooks", "pay-gateway", "errors"];
-            await Promise.all(entries.map((entry) =>
-              import("./packages/tochka-sdk/dist/" + entry + ".js")
-            ));
-          '
-
   commitlint:
     name: Lint Commit Messages
     runs-on: ubuntu-latest

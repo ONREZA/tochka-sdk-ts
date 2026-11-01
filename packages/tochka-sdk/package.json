@@ -22,49 +22,23 @@
     "node": ">=24"
   },
   "sideEffects": false,
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      },
-      "require": {
-        "types": "./dist/index.d.cts",
-        "default": "./dist/index.cjs"
-      }
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
     "./webhooks": {
-      "import": {
-        "types": "./dist/webhooks.d.ts",
-        "default": "./dist/webhooks.js"
-      },
-      "require": {
-        "types": "./dist/webhooks.d.cts",
-        "default": "./dist/webhooks.cjs"
-      }
+      "types": "./dist/webhooks.d.ts",
+      "default": "./dist/webhooks.js"
     },
     "./pay-gateway": {
-      "import": {
-        "types": "./dist/pay-gateway.d.ts",
-        "default": "./dist/pay-gateway.js"
-      },
-      "require": {
-        "types": "./dist/pay-gateway.d.cts",
-        "default": "./dist/pay-gateway.cjs"
-      }
+      "types": "./dist/pay-gateway.d.ts",
+      "default": "./dist/pay-gateway.js"
     },
     "./errors": {
-      "import": {
-        "types": "./dist/errors.d.ts",
-        "default": "./dist/errors.js"
-      },
-      "require": {
-        "types": "./dist/errors.d.cts",
-        "default": "./dist/errors.cjs"
-      }
+      "types": "./dist/errors.d.ts",
+      "default": "./dist/errors.js"
     },
     "./package.json": "./package.json"
   },
