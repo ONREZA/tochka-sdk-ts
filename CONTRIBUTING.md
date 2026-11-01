@@ -9,9 +9,9 @@
 - [cocogitto](https://github.com/cocogitto/cocogitto) для локальной валидации коммитов (опционально, но рекомендуется): `cargo install cocogitto`
 - `lefthook` ставится автоматически через `bun install`
 
-Генератор использует TypeScript 6.0.3 в корне: `openapi-typescript` требует
-прежний compiler API, отсутствующий в TypeScript 7. Проверка и сборка SDK
-используют TypeScript 7.0.2 из workspace пакета.
+Проверки SDK, tests и tools используют TypeScript 7 (`@typescript/native`).
+TypeScript 6.0.3 нужен генератору и сборке деклараций с совместимым compiler API.
+Consumer types установленного npm-пакета проверяются TypeScript 6 и 7.
 
 ## Старт
 
@@ -24,7 +24,7 @@ bun run verify       # полный локальный CI-контур, все �
 ```
 
 Версия Bun задана в `packageManager`; CI читает её из `package.json`.
-Общий `@types/bun` закреплён в `catalog`, TypeScript 6 и 7 разделены намеренно.
+Общий `@types/bun` закреплён в `catalog`, версии TypeScript разделены по ролям намеренно.
 `bun fmt` отвечает за форматирование, Oxlint — за проверки ошибок.
 `bun run lint` проверяет код; `bun run lint:fix` применяет безопасные исправления.
 Сгенерированные файлы, спецификации и архивные страницы исключены из форматирования.
@@ -71,8 +71,9 @@ feat(tochka-sdk)!: split WebhookVerificationError into typed subclasses
 1. Ветка от `main`.
 2. Код + тесты + conventional commits.
 3. `bun run verify` должен пройти.
-4. PR в `main`. CI повторит проверку, проверит переносимость типов и импорты в
-   Node и Bun. Пакет выпускается только как ESM.
+4. PR в `main`. CI повторит проверку и проверит npm-пакет на минимальном
+   Node 24.0.0. Актуальный Node 24 и Bun проверяются в основном verify.
+   Пакет выпускается только как ESM.
 
 ## Релизы
 
@@ -110,13 +111,13 @@ GitHub отключает scheduled workflow публичного репозит
 активности. В Actions → Sync OpenAPI включите workflow через **Enable workflow**,
 затем **Run workflow**. Это отдельная настройка GitHub, исправление CA её не заменяет.
 
-Если обновлённая спецификация требует изменений SDK, sync создаёт draft PR со
-ссылкой на неуспешную проверку. Сам workflow сохраняет статус failure; перед merge
-доработайте SDK и добейтесь успешного `bun run verify`. Запуски с других веток
-проверяют sync, но не обновляют bot PR.
+Sync публикует PR с regenerated types и семантическим diff. Полным verify для PR
+владеет обязательный CI; sync workflow не дублирует весь набор. Если изменившаяся
+схема требует доработки SDK, CI блокирует merge до исправления. Запуски с других
+веток проверяют sync, но не обновляют bot PR.
 
 Защита `main` требует PR, актуальную базовую ветку и успешные проверки `verify`,
-`Lint Commit Messages`. Force-push и удаление `main` запрещены; обходов
+`Package smoke (Node 24.0.0)`, `Lint Commit Messages`. Force-push и удаление `main` запрещены; обходов
 для администраторов и ботов нет. Для слияния используется squash.
 CI проверяет заголовок PR как Conventional Commit и повторяется при его
 редактировании: этот заголовок становится заголовком squash-коммита.
@@ -128,3 +129,25 @@ Spec-бот и release-please используют организационны�
 ## Поддержка
 
 Issues и PR — на GitHub.
+
+## Общий стандарт SDK
+
+CI, Dependabot, formatter/linter и hooks согласованы с CloudPayments SDK.
+GitHub Actions закреплены SHA; Bun берётся из `packageManager`. Основной `test`
+запускает только offline tests; sandbox — отдельно через `test:integration`.
+`typecheck:tools` включает тестовые файлы, `typecheck:portable` проверяет runtime
+без Node/Bun types. CodeQL, Code Quality, secret scanning и push protection
+дополняют обязательные локальные гейты. Версии SDK выпускаются независимо.
+
+Авторизация sync/release остаётся через организационный `RELEASE_PLEASE_TOKEN`;
+CloudPayments использует свой установленный GitHub App. Не заменяйте рабочую
+схему credentials предположением о доступности secrets в другом репозитории.
+
+## Разбор ошибок
+
+Для воспроизведения нужны версия SDK/runtime, операция и безопасный класс/код
+ошибки. Не прикладывайте credentials, карточные данные, криптограммы, raw bodies
+или токены. Сначала воспроизведите проблему offline через custom fetch и добавьте
+регрессионный тест. Подтверждённый source fix, зелёный CI и опубликованный пакет —
+отдельные этапы; после релиза проверьте установку и источник npm-артефакта.
+Неопределённый исход платежа требует сверки, а не новой оплаты по возрасту ошибки.

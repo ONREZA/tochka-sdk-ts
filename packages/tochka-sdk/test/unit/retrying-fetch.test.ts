@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { makeRetryingFetch } from "../../src/core/http.js";
 import { DEFAULT_RETRY } from "../../src/core/retry.js";
 import { TochkaNetworkError, TochkaUnknownOutcomeError } from "../../src/errors/index.js";
@@ -16,7 +16,7 @@ function stubFetch(responses: Array<() => Response | Error>): {
 		const result = factory();
 		if (result instanceof Error) throw result;
 		return result;
-	}) as typeof fetch;
+	}) as unknown as typeof globalThis.fetch;
 	return { fetch, calls };
 }
 
@@ -126,6 +126,75 @@ describe("makeRetryingFetch", () => {
 		expect(Date.now() - start).toBeLessThan(50);
 	});
 
+	test.each([429, 503])(
+		"returns original HTTP %d when Retry-After exceeds the budget",
+		async (status) => {
+			for (const header of [
+				"3600",
+				"9".repeat(400),
+				new Date(Date.now() + 3_600_000).toUTCString(),
+			]) {
+				const response = new Response("provider failure", {
+					status,
+					headers: { "Retry-After": header },
+				});
+				const { fetch, calls } = stubFetch([() => response]);
+				const retrying = makeRetryingFetch(FAST_RETRY, fetch);
+				const timer = spyOn(globalThis, "setTimeout");
+				try {
+					expect(await retrying("http://x")).toBe(response);
+					expect(await response.text()).toBe("provider failure");
+					expect(calls.n).toBe(1);
+					expect(timer).not.toHaveBeenCalled();
+				} finally {
+					timer.mockRestore();
+				}
+			}
+		},
+	);
+	test("within-budget Retry-After uses the exact server delay", async () => {
+		const { fetch, calls } = stubFetch([
+			() => new Response("busy", { status: 503, headers: { "Retry-After": "1" } }),
+			() => new Response("ok"),
+		]);
+		const realSetTimeout = globalThis.setTimeout;
+		const timer = spyOn(globalThis, "setTimeout").mockImplementation(((
+			...args: Parameters<typeof setTimeout>
+		) => realSetTimeout(args[0], 0, ...args.slice(2))) as typeof setTimeout);
+		try {
+			await makeRetryingFetch({ ...FAST_RETRY, maxDelayMs: 1000 }, fetch)("http://x");
+			expect(timer.mock.calls[0]?.[1]).toBe(1000);
+			expect(calls.n).toBe(2);
+		} finally {
+			timer.mockRestore();
+		}
+	});
+	test("preserves the caller reason when an allowed Retry-After wait is aborted", async () => {
+		const controller = new AbortController();
+		const reason = new Error("cancel retry wait");
+		const { fetch, calls } = stubFetch([
+			() => {
+				controller.abort(reason);
+				return new Response("busy", { status: 429, headers: { "Retry-After": "1" } });
+			},
+		]);
+		await expect(
+			makeRetryingFetch({ ...FAST_RETRY, maxDelayMs: 1000 }, fetch)("http://x", {
+				signal: controller.signal,
+			}),
+		).rejects.toBe(reason);
+		expect(calls.n).toBe(1);
+	});
+	test("excluded 429 remains unretried", async () => {
+		const { fetch, calls } = stubFetch([
+			() => new Response("busy", { status: 429, headers: { "Retry-After": "0" } }),
+		]);
+		expect(
+			(await makeRetryingFetch({ ...FAST_RETRY, retryableStatuses: new Set() }, fetch)("http://x"))
+				.status,
+		).toBe(429);
+		expect(calls.n).toBe(1);
+	});
 	test("maxAttempts=0 → падает в validateRetryOptions", () => {
 		expect(() => makeRetryingFetch({ ...FAST_RETRY, maxAttempts: 0 })).toThrow();
 	});

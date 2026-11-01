@@ -310,7 +310,7 @@ describe("verifyPayGatewayWebhook", () => {
 
 	test("refund-updated preserves both digital-ruble results with optional operationId", async () => {
 		const { privateKey, publicKey } = await makeKeypair();
-		for (const type of ["DIGITAL_RUBLE", "DIGITAL_RUBLE_CASH_REGISTER_QRC"]) {
+		for (const type of ["DIGITAL_RUBLE", "DIGITAL_RUBLE_CASH_REGISTER_QRC"] as const) {
 			for (const details of [{}, { operationId: "digital-operation-1" }]) {
 				const refundMethodResult = { type, ...details };
 				const jwt = await sign(privateKey, {

@@ -11,7 +11,7 @@ export default defineConfig({
 	platform: "neutral",
 	target: "es2022",
 	dts: true,
-	publint: true,
+	publint: { strict: true },
 	attw: {
 		profile: "esm-only",
 		level: "error",

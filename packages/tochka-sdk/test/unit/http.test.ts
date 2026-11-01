@@ -1,8 +1,59 @@
 import { describe, expect, test } from "bun:test";
-import { buildFetchClient } from "../../src/core/http.js";
+import { OAuthClient } from "../../src/auth/oauth-client.js";
+import { TochkaClient } from "../../src/client.js";
+import { PayGatewayClient } from "../../src/pay-gateway/index.js";
+import { buildFetchClient, makeRetryingFetch } from "../../src/core/http.js";
+import { resolveRetryOptions } from "../../src/core/retry.js";
 import { TochkaNetworkError, TochkaUnknownOutcomeError } from "../../src/errors/index.js";
 
 describe("buildFetchClient", () => {
+	test.each([
+		(timeoutMs: number) => new TochkaClient({ auth: { sandbox: true }, timeoutMs }),
+		(timeoutMs: number) => new OAuthClient({ clientId: "cid", clientSecret: "secret", timeoutMs }),
+		(timeoutMs: number) =>
+			new PayGatewayClient({ token: "jwt", baseUrl: "https://pay.example", timeoutMs }),
+		(timeoutMs: number) =>
+			buildFetchClient({
+				auth: { getHeaders: () => ({}) },
+				baseUrl: "https://api.example",
+				timeoutMs,
+			}),
+	])(
+		"validates native timer bounds at construction while preserving disabled zero",
+		(construct) => {
+			for (const timeoutMs of [-1, Number.NaN, Number.POSITIVE_INFINITY, 2_147_483_648]) {
+				expect(() => construct(timeoutMs)).toThrow();
+			}
+			expect(() => construct(0)).not.toThrow();
+			expect(() => construct(2_147_483_647)).not.toThrow();
+		},
+	);
+
+	test.each([429, 503])(
+		"retains HTTP %d error details when Retry-After stops retries",
+		async (status) => {
+			let calls = 0;
+			const client = buildFetchClient({
+				baseUrl: "https://api.example.test",
+				auth: { getHeaders: () => ({}) },
+				fetch: makeRetryingFetch(resolveRetryOptions({ maxDelayMs: 20 }), (async () => {
+					calls++;
+					return Response.json(
+						{ message: "OPERATION_RATE_LIMIT" },
+						{ status, headers: { "Retry-After": "3600", "x-request-id": "provider-id" } },
+					);
+				}) as unknown as typeof globalThis.fetch),
+			});
+			await expect(client.GET("/open-banking/v1.0/accounts")).rejects.toMatchObject({
+				status,
+				retryAfterMs: 3_600_000,
+				requestId: "provider-id",
+				category: "OPERATION_RATE_LIMIT",
+			});
+			expect(calls).toBe(1);
+		},
+	);
+
 	test("a pre-aborted write is never sent with a fresh timeout signal", async () => {
 		let calls = 0;
 		const reason = new Error("cancelled before dispatch");
@@ -13,7 +64,7 @@ describe("buildFetchClient", () => {
 			fetch: (async () => {
 				calls += 1;
 				return Response.json({});
-			}) as typeof fetch,
+			}) as unknown as typeof globalThis.fetch,
 		});
 		await expect(
 			client.POST("/acquiring/v1.0/payments/{operationId}/capture", {
@@ -29,7 +80,7 @@ describe("buildFetchClient", () => {
 				baseUrl: "https://api.example.test",
 				auth: { getHeaders: () => ({}) },
 				timeoutMs: 5,
-				fetch: (async (input) => {
+				fetch: (async (input: RequestInfo | URL) => {
 					const request = input as Request;
 					return new Response(
 						new ReadableStream({
@@ -49,7 +100,7 @@ describe("buildFetchClient", () => {
 							},
 						}),
 					);
-				}) as typeof fetch,
+				}) as unknown as typeof globalThis.fetch,
 			});
 			const operation = write
 				? client.POST("/acquiring/v1.0/payments/{operationId}/capture", {
@@ -68,7 +119,7 @@ describe("buildFetchClient", () => {
 			baseUrl: "https://api.example.test",
 			auth: { getHeaders: () => ({}) },
 			timeoutMs: 5,
-			fetch: (async (input) => {
+			fetch: (async (input: RequestInfo | URL) => {
 				const request = input as Request;
 				return new Response(
 					new ReadableStream({
@@ -87,7 +138,7 @@ describe("buildFetchClient", () => {
 					}),
 					{ status: 503 },
 				);
-			}) as typeof fetch,
+			}) as unknown as typeof globalThis.fetch,
 		});
 		await expect(client.GET("/open-banking/v1.0/accounts")).rejects.toMatchObject({ status: 503 });
 		expect(aborted).toBe(true);
@@ -100,7 +151,7 @@ describe("buildFetchClient", () => {
 			baseUrl: "https://api.example.test",
 			auth: { getHeaders: () => ({}) },
 			timeoutMs: 20,
-			fetch: (async (input) => {
+			fetch: (async (input: RequestInfo | URL) => {
 				(input as Request).signal.addEventListener("abort", () => {
 					aborted = true;
 				});
@@ -119,7 +170,7 @@ describe("buildFetchClient", () => {
 					redirected: { value: true },
 				});
 				return response;
-			}) as typeof fetch,
+			}) as unknown as typeof globalThis.fetch,
 		});
 		const result = await client.GET("/open-banking/v1.0/accounts", { parseAs: "stream" });
 		expect(result.response.url).toBe("https://api.example.test/redirected");
@@ -150,7 +201,7 @@ describe("buildFetchClient", () => {
 					status: 200,
 					headers: { "content-type": "application/json" },
 				});
-			}) as typeof fetch,
+			}) as unknown as typeof globalThis.fetch,
 			onResponse: (info) => {
 				durationMs = info.durationMs;
 			},

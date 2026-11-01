@@ -8,10 +8,10 @@
 	],
 	"scripts": {
 		"build": "bun --filter='@onreza/*' run build",
-		"test": "bun test --parallel",
+		"test": "bun test --parallel tools packages/tochka-sdk/test/unit",
 		"test:tools": "bun test --parallel tools",
 		"typecheck": "bun --filter='@onreza/*' run typecheck",
-		"typecheck:tools": "tsc --noEmit -p tsconfig.tools.json",
+		"typecheck:tools": "node node_modules/@typescript/native/bin/tsc --noEmit --stableTypeOrdering --checkers 1 -p tsconfig.tools.json",
 		"typecheck:portable": "bun --filter='@onreza/*' run typecheck:portable",
 		"lint": "oxlint --deny-warnings .",
 		"lint:fix": "oxlint --fix --deny-warnings .",
@@ -24,20 +24,24 @@
 		"package:check": "bun tools/check-package.ts",
 		"verify": "bun run gen:check && bun run format:check && bun run lint && bun run typecheck && bun run typecheck:tools && bun run typecheck:portable && bun run test && bun run build && bun run package:check",
 		"prepare": "lefthook install || echo 'Install lefthook: https://github.com/evilmartians/lefthook'",
-		"test:changed": "bun test --parallel --changed",
-		"format:check": "bun fmt --check"
+		"test:changed": "bun test --parallel --changed tools packages/tochka-sdk/test/unit",
+		"format:check": "bun fmt --check",
+		"test:integration": "bun test packages/tochka-sdk/test/sandbox"
 	},
 	"devDependencies": {
 		"@types/bun": "catalog:",
 		"lefthook": "2.2.2",
 		"openapi-typescript": "7.13.0",
 		"oxlint": "1.90.0",
-		"typescript": "6.0.3"
+		"typescript": "catalog:",
+		"@typescript/native": "catalog:"
 	},
 	"engines": {
 		"node": ">=24"
 	},
 	"catalog": {
-		"@types/bun": "1.4.4"
+		"@types/bun": "1.4.4",
+		"typescript": "6.0.3",
+		"@typescript/native": "npm:typescript@7.0.2"
 	}
 }

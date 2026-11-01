@@ -50,6 +50,12 @@ const timeoutStates = new WeakMap<Request, TimeoutState>();
 const startTimes = new WeakMap<Request, number>();
 
 export function buildFetchClient(init: TochkaFetchInit): TochkaFetchClient {
+	if (
+		init.timeoutMs !== undefined &&
+		(!Number.isFinite(init.timeoutMs) || init.timeoutMs < 0 || init.timeoutMs > 2_147_483_647)
+	) {
+		throw new RangeError("timeoutMs must be finite, non-negative and <= 2147483647");
+	}
 	const baseHeaders: Record<string, string> = {
 		Accept: "application/json",
 		"User-Agent": init.userAgent ?? "onreza-tochka-sdk",
@@ -205,6 +211,7 @@ function errorMiddleware(): Middleware {
 				requestId,
 				payload,
 				rawBody,
+				retryAfterMs: parseRetryAfter(response.headers.get("retry-after")),
 			});
 		},
 	};
@@ -284,7 +291,8 @@ export function makeRetryingFetch(
 				continue;
 			}
 			if (!opts.retryableStatuses.has(response.status) || attempt >= maxAttempts) return response;
-			const retryAfter = parseRetryAfter(response.headers.get("retry-after"), opts.maxDelayMs);
+			const retryAfter = parseRetryAfter(response.headers.get("retry-after"));
+			if (retryAfter !== null && retryAfter > opts.maxDelayMs) return response;
 			await response.body?.cancel().catch(() => undefined);
 			await sleep(retryAfter ?? computeBackoffMs(attempt, opts), signal);
 		}

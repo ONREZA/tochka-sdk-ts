@@ -26,6 +26,17 @@ describe("computeBackoffMs", () => {
 		expect(computeBackoffMs(100, NO_JITTER)).toBe(NO_JITTER.maxDelayMs);
 	});
 
+	test("jitter stays within maxDelayMs", () => {
+		for (let i = 0; i < 100; i++) {
+			expect(computeBackoffMs(100, DEFAULT_RETRY)).toBeLessThanOrEqual(DEFAULT_RETRY.maxDelayMs);
+		}
+	});
+	test("rejects unsafe counts and timer overflow delays", () => {
+		expect(() => validateRetryOptions({ ...DEFAULT_RETRY, maxAttempts: 2 ** 53 })).toThrow();
+		for (const option of ["initialDelayMs", "maxDelayMs"] as const) {
+			expect(() => validateRetryOptions({ ...DEFAULT_RETRY, [option]: 2_147_483_648 })).toThrow();
+		}
+	});
 	test("jitter не даёт отрицательных значений", () => {
 		for (let i = 0; i < 100; i++) {
 			const v = computeBackoffMs(1, DEFAULT_RETRY);
@@ -44,6 +55,10 @@ describe("computeBackoffMs", () => {
 });
 
 describe("parseRetryAfter", () => {
+	test("preserves huge delays as an overflow marker instead of allowing a short retry", () => {
+		expect(parseRetryAfter("9".repeat(400))).toBe(Number.POSITIVE_INFINITY);
+		expect(parseRetryAfter(" ")).toBeNull();
+	});
 	test("null / пустая / мусор → null", () => {
 		expect(parseRetryAfter(null)).toBe(null);
 		expect(parseRetryAfter("")).toBe(null);
@@ -55,9 +70,9 @@ describe("parseRetryAfter", () => {
 		expect(parseRetryAfter("0")).toBe(0);
 	});
 
-	test("clamp по maxMs (дефолт 60с)", () => {
-		expect(parseRetryAfter("3600")).toBe(60_000);
-		expect(parseRetryAfter("120", 30_000)).toBe(30_000);
+	test("preserves the full server delay even with a legacy maxMs argument", () => {
+		expect(parseRetryAfter("3600")).toBe(3_600_000);
+		expect(parseRetryAfter("120", 30_000)).toBe(120_000);
 	});
 
 	test("отрицательное число приводится к нулю", () => {

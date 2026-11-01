@@ -95,8 +95,11 @@ export class OAuthClient {
 				"OAuthClient: authServerUrl must not contain credentials, query, or fragment",
 			);
 		}
-		if (opts.timeoutMs !== undefined && (!Number.isFinite(opts.timeoutMs) || opts.timeoutMs < 0)) {
-			throw new Error("OAuthClient: timeoutMs must be finite and non-negative");
+		if (
+			opts.timeoutMs !== undefined &&
+			(!Number.isFinite(opts.timeoutMs) || opts.timeoutMs < 0 || opts.timeoutMs > 2_147_483_647)
+		) {
+			throw new Error("OAuthClient: timeoutMs must be finite, non-negative and <= 2147483647");
 		}
 		this.authServerUrl = authServerUrl.toString().replace(/\/+$/, "");
 		this.fetchImpl = opts.fetch ?? fetch;

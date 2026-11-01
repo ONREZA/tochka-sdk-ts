@@ -7,7 +7,7 @@ function stubFetch(
 	return (async (url: RequestInfo | URL, init?: RequestInit) => {
 		const u = typeof url === "string" ? url : url instanceof URL ? url.toString() : url.url;
 		return handler(u, init ?? {});
-	}) as typeof fetch;
+	}) as unknown as typeof globalThis.fetch;
 }
 
 describe("OAuthClient.buildAuthorizeUrl", () => {
@@ -152,7 +152,7 @@ describe("OAuthClient.token — валидация ответа", () => {
 			fetch: (async () =>
 				new Response(JSON.stringify({ access_token: "at", token_type: "bearer" }), {
 					status: 200,
-				})) as typeof fetch,
+				})) as unknown as typeof globalThis.fetch,
 		});
 		await expect(client.clientCredentials()).rejects.toBeInstanceOf(OAuthTokenError);
 	});

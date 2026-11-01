@@ -108,9 +108,11 @@ function resolveAuth(
 function validateClientOptions(options: TochkaClientOptions): void {
 	if (
 		options.timeoutMs !== undefined &&
-		(!Number.isFinite(options.timeoutMs) || options.timeoutMs < 0)
+		(!Number.isFinite(options.timeoutMs) ||
+			options.timeoutMs < 0 ||
+			options.timeoutMs > 2_147_483_647)
 	) {
-		throw new Error("TochkaClient.timeoutMs must be finite and non-negative");
+		throw new Error("TochkaClient.timeoutMs must be finite, non-negative and <= 2147483647");
 	}
 	if (options.baseUrl !== undefined) {
 		const url = new URL(options.baseUrl);

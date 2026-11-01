@@ -8,7 +8,7 @@ function stubFetch(
 	const f = (async () => {
 		counter.n += 1;
 		return handler();
-	}) as typeof fetch;
+	}) as unknown as typeof globalThis.fetch;
 	return { fetch: f, counter };
 }
 
@@ -86,7 +86,7 @@ describe("OAuthAuth — client_credentials", () => {
 		const fetch = (async () => {
 			n += 1;
 			return tokenResponse({ access_token: `at-${n}`, expires_in: 0.05 });
-		}) as typeof fetch;
+		}) as unknown as typeof globalThis.fetch;
 		const auth = new OAuthAuth({
 			clientId: "cid",
 			clientSecret: "sec",
@@ -105,7 +105,7 @@ describe("OAuthAuth — client_credentials", () => {
 			n += 1;
 			if (n === 1) return new Response("{}", { status: 500 });
 			return tokenResponse({ access_token: "at-recovered" });
-		}) as typeof fetch;
+		}) as unknown as typeof globalThis.fetch;
 		const auth = new OAuthAuth({
 			clientId: "cid",
 			clientSecret: "sec",
@@ -135,7 +135,7 @@ describe("OAuthAuth — authorization_code", () => {
 		const fetch = (async (_url: unknown, init: RequestInit) => {
 			body = String(init.body);
 			return tokenResponse({ access_token: "at-refreshed", refresh_token: "rt-new" });
-		}) as typeof fetch;
+		}) as unknown as typeof globalThis.fetch;
 
 		const initialTokens: OAuthTokens & { refreshToken: string } = {
 			accessToken: "old-at",

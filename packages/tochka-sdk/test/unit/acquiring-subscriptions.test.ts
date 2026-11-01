@@ -5,7 +5,7 @@ import type { AcquiringCreateSubscriptionWithReceiptRequest } from "../../src/mo
 
 interface Captured {
 	url?: string;
-	method?: string;
+	method?: string | undefined;
 }
 
 function makeClient(captured: Captured) {

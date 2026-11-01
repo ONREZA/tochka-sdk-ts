@@ -48,13 +48,14 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsdown",
-    "dev": "tsdown --watch",
+    "build": "bun --bun run tsdown",
+    "dev": "bun --bun run tsdown --watch",
     "prepack": "bun ../../tools/package-files.ts prepare && bun run build",
     "postpack": "bun ../../tools/package-files.ts clean",
-    "test": "bun test --parallel",
-    "typecheck": "tsc --noEmit",
-    "typecheck:portable": "tsc --noEmit -p tsconfig.portable.json"
+    "test": "bun test --parallel test/unit",
+    "typecheck": "node node_modules/@typescript/native/bin/tsc --noEmit --stableTypeOrdering --checkers 1",
+    "typecheck:portable": "node node_modules/@typescript/native/bin/tsc --noEmit --stableTypeOrdering --checkers 1 -p tsconfig.portable.json",
+    "test:integration": "bun test test/sandbox"
   },
   "dependencies": {
     "jose": "6.2.14",
@@ -65,6 +66,7 @@
     "@types/bun": "catalog:",
     "publint": "0.3.25",
     "tsdown": "0.23.4",
-    "typescript": "7.0.2"
+    "typescript": "catalog:",
+    "@typescript/native": "catalog:"
   }
 }

@@ -40,6 +40,8 @@ export interface TochkaErrorInit {
 	payload?: TochkaErrorPayload | undefined;
 	/** Сырой текст тела ответа — используется когда JSON распарсить не удалось. */
 	rawBody?: string | undefined;
+	/** Full server delay, or Infinity when it cannot be represented. */
+	retryAfterMs?: number | null | undefined;
 	cause?: unknown;
 }
 
@@ -53,6 +55,7 @@ export class TochkaError extends Error {
 	readonly details: readonly TochkaErrorDetail[];
 	readonly payload: TochkaErrorPayload | undefined;
 	readonly rawBody: string | undefined;
+	readonly retryAfterMs: number | null;
 
 	constructor(init: TochkaErrorInit) {
 		const msg = buildMessage(init);
@@ -65,6 +68,7 @@ export class TochkaError extends Error {
 		this.details = init.payload?.Errors ?? [];
 		this.payload = init.payload;
 		this.rawBody = init.rawBody;
+		this.retryAfterMs = init.retryAfterMs ?? null;
 	}
 
 	static from(init: TochkaErrorInit): TochkaError {
