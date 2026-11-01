@@ -38,6 +38,54 @@ function paymentPayload() {
 }
 
 describe("verifyPayGatewayWebhook", () => {
+	test("token-deactivated accepts the card token payload with optional trn", async () => {
+		const { privateKey, publicKey } = await makeKeypair();
+		for (const details of [{}, { trn: "872635123" }]) {
+			const payload = {
+				account: "account",
+				token: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+				...details,
+			};
+			const jwt = await sign(privateKey, {
+				version: "1.0",
+				siteUid: "site-1",
+				createdAt: CREATED_AT,
+				event: "token-deactivated",
+				payloadType: "card-token-deactivation",
+				payload,
+			});
+			const event = await verifyPayGatewayWebhook(jwt, { keySource: { key: publicKey } });
+			if (event.event !== "token-deactivated") expect.unreachable();
+			expect(event.payload).toEqual(payload);
+			expect(event.payload.token).toBe(payload.token);
+		}
+	});
+
+	test("token-deactivated rejects malformed payloads and mismatched payloadType", async () => {
+		const { privateKey, publicKey } = await makeKeypair();
+		for (const invalid of [
+			{ payload: { token: "token" } },
+			{ payload: { account: "account" } },
+			{ payload: { account: 1, token: "token" } },
+			{ payload: { account: "account", token: null } },
+			{ payload: { account: "account", token: "token", trn: 1 } },
+			{ payload: { account: "account", token: "token", trn: null } },
+			{ payload: { account: "account", token: "token" }, payloadType: "payment" },
+		]) {
+			const jwt = await sign(privateKey, {
+				version: "1.0",
+				siteUid: "site-1",
+				createdAt: CREATED_AT,
+				event: "token-deactivated",
+				payloadType: "card-token-deactivation",
+				...invalid,
+			});
+			await expect(
+				verifyPayGatewayWebhook(jwt, { keySource: { key: publicKey } }),
+			).rejects.toMatchObject({ reason: "payload_shape" });
+		}
+	});
+
 	for (const paymentMethod of [
 		{ type: "DIGITAL_RUBLE", qrcId: "q1", operationId: "digital-operation-1" },
 		{

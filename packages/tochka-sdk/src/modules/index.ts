@@ -40,11 +40,7 @@ export type {
 	InvoiceCreateRequest,
 	InvoicePaymentStatus,
 } from "./invoice.js";
-export {
-	BillsModule,
-	ClosingDocumentsModule,
-	InvoiceModule,
-} from "./invoice.js";
+export { BillsModule, ClosingDocumentsModule, InvoiceModule } from "./invoice.js";
 export type {
 	PaymentForSign,
 	PaymentForSignCreated,

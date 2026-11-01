@@ -1,5 +1,17 @@
 [install]
-exact = false
+linker = "isolated"
 
-[install.cache]
-disable = false
+[fmt]
+useTabs = true
+printWidth = 100
+ignorePatterns = [
+	"docs/**",
+	"specs/**",
+	"packages/tochka-sdk/src/_generated/**",
+	"packages/tochka-sdk/CHANGELOG.md",
+]
+
+[[fmt.overrides]]
+files = ["packages/tochka-sdk/package.json"]
+[fmt.overrides.options]
+useTabs = false

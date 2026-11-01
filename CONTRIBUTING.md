@@ -4,7 +4,7 @@
 
 ## Требования
 
-- [Bun](https://bun.sh) 1.4.2 — рантайм и test-раннер
+- [Bun](https://bun.sh) 1.4.4 — рантайм, форматирование, test-раннер и package manager
 - Node 24+ — инструменты разработки, сборка и поддерживаемый рантайм SDK
 - [cocogitto](https://github.com/cocogitto/cocogitto) для локальной валидации коммитов (опционально, но рекомендуется): `cargo install cocogitto`
 - `lefthook` ставится автоматически через `bun install`
@@ -16,10 +16,22 @@
 ## Старт
 
 ```bash
-bun install          # + ставит git hooks через lefthook
+bun install --frozen-lockfile # изолированные зависимости + git hooks через lefthook
 bun run gen          # генерация типов из обеих OpenAPI-спецификаций
-bun run verify       # полный локальный CI-контур
+bun run format       # форматирование через bun fmt
+bun run test:changed # затронутые Git-изменениями тесты (локальная быстрая проверка)
+bun run verify       # полный локальный CI-контур, все тесты с --parallel
 ```
+
+Версия Bun задана в `packageManager`; CI читает её из `package.json`.
+Общий `@types/bun` закреплён в `catalog`, TypeScript 6 и 7 разделены намеренно.
+`bun fmt` отвечает за форматирование, Oxlint — за проверки ошибок.
+`bun run lint` проверяет код; `bun run lint:fix` применяет безопасные исправления.
+Сгенерированные файлы, спецификации и архивные страницы исключены из форматирования.
+
+Для сборки без сети сначала заполните кеш: `bun pm fetch`, затем
+`bun install --offline --frozen-lockfile`. CI выполняет полную проверку тестов;
+`test:changed` предназначен для локальной итерации и её не заменяет.
 
 ## Структура
 
@@ -40,7 +52,7 @@ specs/              # OpenAPI слепок
 
 ## Правила
 
-- **Комментарии минимальны.** Только там, где объясняют неочевидный *why*. Комментарии вида «added for issue #X» — comment rot, удаляются.
+- **Комментарии минимальны.** Только там, где объясняют неочевидный _why_. Комментарии вида «added for issue #X» — comment rot, удаляются.
 - **Generated код не трогаем руками** — всё в `src/_generated/`. При изменении спецификации: `bun run spec:fetch && bun run gen`.
 - **Conventional Commits обязательны.** Lefthook + cocogitto проверяют формат при коммите. В CI дополнительно `cog check` на всех коммитах PR.
 

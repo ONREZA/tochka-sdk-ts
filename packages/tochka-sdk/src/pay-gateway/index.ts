@@ -35,11 +35,7 @@ export type {
 export { PayGatewayCashRegisterQrcModule } from "./cash-register.js";
 export type { PayGatewayClientOptions } from "./client.js";
 export { DEFAULT_SIGNED_PATHS, PayGatewayClient as PayGatewayTransport } from "./client.js";
-export type {
-	CancelInvoiceRequest,
-	CreateInvoiceRequest,
-	PayGatewayInvoice,
-} from "./invoices.js";
+export type { CancelInvoiceRequest, CreateInvoiceRequest, PayGatewayInvoice } from "./invoices.js";
 export { PayGatewayInvoicesModule } from "./invoices.js";
 export { PAY_API_VERSION, sitePath, withQuery } from "./paths.js";
 export {
@@ -91,6 +87,7 @@ export {
 	type RefundUpdatedWebhook,
 	type SbpTokenDeclinedWebhook,
 	type SbpTokenIssuedWebhook,
+	type TokenDeactivatedWebhook,
 	type VerifyWebhookOptions,
 	verifyPayGatewayWebhook,
 	WebhookVerificationError,

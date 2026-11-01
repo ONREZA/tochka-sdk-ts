@@ -96,6 +96,46 @@ test("preserves shared response defaults through callback refs and nested escape
 	);
 }, 15000);
 
+test("empty allOf bases allow fields without weakening closed objects or dictionaries", async () => {
+	const document = parseOpenApi({
+		openapi: "3.0.0",
+		info: { title: "Test", version: "1" },
+		servers: [{ url: "https://example.com" }],
+		paths: { "/item": {} },
+		components: {
+			schemas: {
+				Base: { type: "object", description: "Notification payload" },
+				Payload: {
+					allOf: [
+						{ $ref: "#/components/schemas/Base" },
+						{ type: "object", required: ["token"], properties: { token: { type: "string" } } },
+					],
+				},
+				Closed: { type: "object", additionalProperties: false },
+				Dictionary: { type: "object", additionalProperties: { type: "number" } },
+				ClosedPayload: { allOf: [{ $ref: "#/components/schemas/Closed" }] },
+				DictionaryPayload: { allOf: [{ $ref: "#/components/schemas/Dictionary" }] },
+			},
+		},
+	});
+	const before = structuredClone(document);
+	await compileNormalized(
+		document,
+		`
+		const payload: components["schemas"]["Payload"] = { token: "token" };
+		// @ts-expect-error Required payload fields remain required.
+		const missingToken: components["schemas"]["Payload"] = {};
+		// @ts-expect-error Explicitly closed objects remain closed.
+		const closed: components["schemas"]["ClosedPayload"] = { token: "token" };
+		const dictionary: components["schemas"]["DictionaryPayload"] = { count: 1 };
+		// @ts-expect-error Dictionary value types remain enforced.
+		const invalidDictionary: components["schemas"]["DictionaryPayload"] = { count: "one" };
+		void [payload, missingToken, closed, dictionary, invalidDictionary];
+	`,
+	);
+	expect(document).toEqual(before);
+}, 15000);
+
 test("normalization leaves example and default payload objects unchanged", () => {
 	const payload = { discriminator: { propertyName: "business-data" }, default: "value" };
 	const document = parseOpenApi({

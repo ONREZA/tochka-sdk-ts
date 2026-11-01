@@ -1,0 +1,37 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"plugins": ["typescript", "unicorn", "oxc"],
+	"categories": {
+		"correctness": "error",
+		"suspicious": "error"
+	},
+	"rules": {
+		"no-unused-vars": "error",
+		"typescript/no-explicit-any": "error",
+		"typescript/consistent-type-imports": "error",
+		"unicorn/prefer-node-protocol": "error",
+		"unicorn/no-array-sort": "off",
+		"unicorn/consistent-function-scoping": "off",
+		"unicorn/no-useless-fallback-in-spread": "off"
+	},
+	"overrides": [
+		{
+			"files": ["**/*.test.ts"],
+			"rules": {
+				"no-restricted-properties": [
+					"error",
+					{ "property": "only", "message": "Focused tests must not be committed." }
+				]
+			}
+		}
+	],
+	"ignorePatterns": [
+		"**/node_modules/**",
+		"**/dist/**",
+		"**/src/_generated/**",
+		"docs/**",
+		"specs/**",
+		"**/coverage/**",
+		".changeset/**"
+	]
+}

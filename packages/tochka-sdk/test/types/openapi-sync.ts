@@ -10,6 +10,7 @@ import type {
 	CreateSbpFunctionalLinkRequest,
 	PayGatewayOperation,
 	RefundRetryRequest,
+	TokenDeactivatedWebhook,
 } from "../../src/pay-gateway/index.js";
 
 const dynamic: CreateSbpFunctionalLinkRequest = {
@@ -35,6 +36,14 @@ const digitalCode: CreateSbpFunctionalLinkRequest = {
 };
 const retry: RefundRetryRequest = {
 	refundMethod: { type: "CARD", pan: "4111111111111111", cvv2: "123", expirationDate: "12/28" },
+};
+const tokenDeactivation: TokenDeactivatedWebhook = {
+	version: "1.0",
+	siteUid: "s",
+	event: "token-deactivated",
+	createdAt: "2026-11-01T00:00:00Z",
+	payloadType: "card-token-deactivation",
+	payload: { account: "account", token: "token" },
 };
 
 function readDigitalOperation(operation: PayGatewayOperation): string | undefined {
@@ -77,6 +86,7 @@ void [
 	rawCashRegister,
 	digitalCode,
 	retry,
+	tokenDeactivation,
 	readDigitalOperation,
 	readExistingResponseCaptureMode,
 	permissions,

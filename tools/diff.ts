@@ -57,7 +57,7 @@ function collectOperations(spec: JsonObject): Map<string, Operation> {
 				contract: {
 					operation: Object.fromEntries(
 						Object.entries(operation).filter(
-							([key]) => !["description", "summary", "tags", "externalDocs"].includes(key),
+							([field]) => !["description", "summary", "tags", "externalDocs"].includes(field),
 						),
 					),
 					shared,
@@ -153,13 +153,13 @@ function schemaChanges(next: unknown, prev: unknown, path: string): string[] {
 				changes.push(`- \`${path}.${key}\`: удалён вариант \`${ref}\` ⚠️ breaking`);
 		} else if (key === "enum" && Array.isArray(nextChild) && Array.isArray(prevChild)) {
 			for (const value of nextChild.filter(
-				(value) => !prevChild.some((before) => equal(value, before)),
+				(candidate) => !prevChild.some((before) => equal(candidate, before)),
 			))
 				changes.push(
 					`- \`${path}\`: добавлено enum-значение \`${typeof value === "string" ? value : JSON.stringify(value)}\``,
 				);
 			for (const value of prevChild.filter(
-				(value) => !nextChild.some((after) => equal(value, after)),
+				(candidate) => !nextChild.some((after) => equal(candidate, after)),
 			))
 				changes.push(
 					`- \`${path}\`: удалено enum-значение \`${typeof value === "string" ? value : JSON.stringify(value)}\` ⚠️ breaking`,

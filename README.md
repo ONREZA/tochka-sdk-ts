@@ -49,14 +49,14 @@ await client.sbp.qrCodes.register(merchantId, accountId, { ... });
 
 ```ts
 const client = new TochkaClient({
-  auth: {
-    oauth: {
-      clientId: process.env.TOCHKA_CLIENT_ID!,
-      clientSecret: process.env.TOCHKA_CLIENT_SECRET!,
-      mode: "client_credentials",
-      scope: ["accounts", "balances"],
-    },
-  },
+	auth: {
+		oauth: {
+			clientId: process.env.TOCHKA_CLIENT_ID!,
+			clientSecret: process.env.TOCHKA_CLIENT_SECRET!,
+			mode: "client_credentials",
+			scope: ["accounts", "balances"],
+		},
+	},
 });
 // Токен получается и обновляется автоматически
 ```
@@ -71,37 +71,37 @@ const pkce = await generatePkce();
 
 // 1. Построить URL для пользователя
 const url = oauth.buildAuthorizeUrl({
-  redirectUri: "https://your.app/cb",
-  consentId: "...",
-  state: "random-csrf-token",
-  codeChallenge: pkce.codeChallenge,
+	redirectUri: "https://your.app/cb",
+	consentId: "...",
+	state: "random-csrf-token",
+	codeChallenge: pkce.codeChallenge,
 });
 
 // 2. После колбэка обменять code на токены
 const tokens = await oauth.exchangeCode({
-  code: receivedCode,
-  redirectUri: "https://your.app/cb",
-  codeVerifier: pkce.codeVerifier,
+	code: receivedCode,
+	redirectUri: "https://your.app/cb",
+	codeVerifier: pkce.codeVerifier,
 });
 
 // 3. Передать токены в клиент — SDK сам обновляет через refresh_token.
 // Для общего постоянного store обязателен tenant-specific storeKey.
 const client = new TochkaClient({
-  auth: {
-    oauth: {
-      clientId,
-      clientSecret,
-      mode: "authorization_code",
-      store: tokenStore,
-      storeKey: `oauth:${tenantId}`,
-      tokens: {
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token!,
-        tokenType: tokens.token_type,
-        expiresAt: Date.now() + tokens.expires_in * 1000,
-      },
-    },
-  },
+	auth: {
+		oauth: {
+			clientId,
+			clientSecret,
+			mode: "authorization_code",
+			store: tokenStore,
+			storeKey: `oauth:${tenantId}`,
+			tokens: {
+				accessToken: tokens.access_token,
+				refreshToken: tokens.refresh_token!,
+				tokenType: tokens.token_type,
+				expiresAt: Date.now() + tokens.expires_in * 1000,
+			},
+		},
+	},
 });
 ```
 
@@ -115,28 +115,28 @@ refresh одного tenant на уровне распределённого loc
 import { verifyWebhook, WebhookVerificationError } from "@onreza/tochka-sdk/webhooks";
 
 app.post("/webhook", async (req, res) => {
-  const rawBody = await req.text();
-  try {
-    const event = await verifyWebhook(rawBody);
-    switch (event.webhookType) {
-      case "incomingSbpPayment":
-        console.log("SBP:", event.amount, event.payerName);
-        break;
-      case "acquiringInternetPayment":
-        console.log("Card:", event.amount, event.paymentType);
-        break;
-      case "customWebhook":
-        console.log("Custom:", event);
-        break;
-      // ... остальные типы
-    }
-    res.status(200).send();
-  } catch (err) {
-    if (err instanceof WebhookVerificationError) {
-      console.error(`Verification failed: ${err.reason}`, err.cause);
-    }
-    res.status(400).send();
-  }
+	const rawBody = await req.text();
+	try {
+		const event = await verifyWebhook(rawBody);
+		switch (event.webhookType) {
+			case "incomingSbpPayment":
+				console.log("SBP:", event.amount, event.payerName);
+				break;
+			case "acquiringInternetPayment":
+				console.log("Card:", event.amount, event.paymentType);
+				break;
+			case "customWebhook":
+				console.log("Custom:", event);
+				break;
+			// ... остальные типы
+		}
+		res.status(200).send();
+	} catch (err) {
+		if (err instanceof WebhookVerificationError) {
+			console.error(`Verification failed: ${err.reason}`, err.cause);
+		}
+		res.status(400).send();
+	}
 });
 ```
 
@@ -147,22 +147,22 @@ import { PayGatewayClient } from "@onreza/tochka-sdk/pay-gateway";
 import { readFileSync } from "node:fs";
 
 const pg = new PayGatewayClient({
-  token: process.env.PG_JWT!,
-  baseUrl: process.env.PG_BASE_URL!, // выдаётся при онбординге
-  privateKey: readFileSync("private_pkcs8.pem", "utf8"),
+	token: process.env.PG_JWT!,
+	baseUrl: process.env.PG_BASE_URL!, // выдаётся при онбординге
+	privateKey: readFileSync("private_pkcs8.pem", "utf8"),
 });
 
 const operation = await pg.payments.create({
-  siteUid: "your-site",
-  paymentUid: "payment-123",
-  amount: { currency: "RUB", amount: "100.00" },
-  orderUid: "order-123",
-  paymentMethod: {
-    type: "CARD",
-    pan: "4111111111111111",
-    expirationDate: "12/28",
-    captureMode: "AUTO",
-  },
+	siteUid: "your-site",
+	paymentUid: "payment-123",
+	amount: { currency: "RUB", amount: "100.00" },
+	orderUid: "order-123",
+	paymentMethod: {
+		type: "CARD",
+		pan: "4111111111111111",
+		expirationDate: "12/28",
+		captureMode: "AUTO",
+	},
 });
 ```
 
