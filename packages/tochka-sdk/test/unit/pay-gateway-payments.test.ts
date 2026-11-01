@@ -23,9 +23,9 @@ async function pkcs8Pem(): Promise<string> {
 
 interface Captured {
 	url?: string;
-	method?: string;
+	method?: string | undefined;
 	headers?: Record<string, string>;
-	body?: string;
+	body?: string | undefined;
 }
 
 function makeClient(captured: Captured, privateKey?: string) {

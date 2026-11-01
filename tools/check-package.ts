@@ -132,11 +132,18 @@ const invalidCode: CreateSbpFunctionalLinkRequest = { siteUid: "site", qrcType: 
 void [bank, staticCode, digital, retryForm, deleted, webhook, readPayment, readMainUpdates, invalidCode, TochkaError];
 `;
 	await Bun.write(join(consumerRoot, "consumer.mts"), consumerSource);
-	for (const compilerRoot of [resolve(PACKAGE_ROOT, "../.."), PACKAGE_ROOT]) {
+	for (const { path: compilerPath, args } of [
+		{ path: resolve(PACKAGE_ROOT, "../../node_modules/typescript/bin/tsc"), args: [] },
+		{
+			path: resolve(PACKAGE_ROOT, "../../node_modules/@typescript/native/bin/tsc"),
+			args: ["--stableTypeOrdering", "--checkers", "1"],
+		},
+	]) {
 		const compiler = Bun.spawn(
 			[
-				process.execPath,
-				join(compilerRoot, "node_modules/typescript/bin/tsc"),
+				"node",
+				compilerPath,
+				...args,
 				"--noEmit",
 				"--strict",
 				"--exactOptionalPropertyTypes",
@@ -152,7 +159,7 @@ void [bank, staticCode, digital, retryForm, deleted, webhook, readPayment, readM
 			{ cwd: consumerRoot, stdout: "inherit", stderr: "inherit" },
 		);
 		if ((await compiler.exited) !== 0)
-			throw new Error(`Packed consumer typecheck failed using ${compilerRoot}`);
+			throw new Error(`Packed consumer typecheck failed using ${compilerPath}`);
 	}
 
 	console.log(

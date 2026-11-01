@@ -150,6 +150,7 @@ describe("verifyWebhook", () => {
 		});
 		const event = await verifyWebhook(jwt, { keySource: { key: publicKey } });
 		expect(event.webhookType).toBe("customWebhook");
+		if (event.webhookType !== "customWebhook") expect.unreachable();
 		expect(event.orderId).toBe("order-1");
 	});
 
@@ -222,7 +223,7 @@ describe("verifyWebhook", () => {
 		globalThis.fetch = (async () => {
 			fetches += 1;
 			return Response.json({ keys: fetches === 1 ? [firstJwk] : [secondJwk] });
-		}) as typeof fetch;
+		}) as unknown as typeof globalThis.fetch;
 
 		try {
 			const resolver = createWebhookKeyResolver({

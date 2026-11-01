@@ -3,7 +3,7 @@ export interface RetryOptions {
 	maxAttempts: number;
 	/** Начальная задержка в мс. */
 	initialDelayMs: number;
-	/** Потолок задержки в мс. Применяется и к вычисленному backoff, и к Retry-After. */
+	/** Backoff cap in ms. A larger Retry-After stops automatic retries. */
 	maxDelayMs: number;
 	/** Множитель экспоненциального backoff. */
 	factor: number;
@@ -67,20 +67,19 @@ export function computeBackoffMs(attempt: number, opts: RetryOptions): number {
 	const base = Math.min(opts.maxDelayMs, opts.initialDelayMs * opts.factor ** (attempt - 1));
 	if (!opts.jitter) return base;
 	const spread = base * 0.25;
-	return Math.max(0, base - spread + Math.random() * spread * 2);
+	return Math.min(opts.maxDelayMs, Math.max(0, base - spread + Math.random() * spread * 2));
 }
 
 /**
- * Разобрать заголовок `Retry-After`. Поддерживает HTTP-date и относительные
- * секунды. Clamp до `maxMs` чтобы сервер/прокси не могли заморозить вызывающую
- * сторону на час.
+ * Return the full server delay; positive overflow is Infinity and must stop retries.
+ * The legacy maxMs argument is ignored: shortening Retry-After can retry too early.
  */
-export function parseRetryAfter(header: string | null, maxMs = 60_000): number | null {
-	if (!header) return null;
+export function parseRetryAfter(header: string | null, _maxMs?: number): number | null {
+	if (!header?.trim()) return null;
 	const asNum = Number(header);
-	if (Number.isFinite(asNum)) return Math.min(maxMs, Math.max(0, asNum * 1000));
+	if (!Number.isNaN(asNum)) return Math.max(0, asNum * 1000);
 	const asDate = Date.parse(header);
-	if (Number.isFinite(asDate)) return Math.min(maxMs, Math.max(0, asDate - Date.now()));
+	if (Number.isFinite(asDate)) return Math.max(0, asDate - Date.now());
 	return null;
 }
 
@@ -112,16 +111,18 @@ export function isAbortError(err: unknown): boolean {
 }
 
 export function validateRetryOptions(opts: RetryOptions): void {
-	if (!Number.isInteger(opts.maxAttempts) || opts.maxAttempts < 1) {
+	if (!Number.isSafeInteger(opts.maxAttempts) || opts.maxAttempts < 1) {
 		throw new Error(`RetryOptions.maxAttempts must be a positive integer, got ${opts.maxAttempts}`);
 	}
 	if (
 		!Number.isFinite(opts.maxDelayMs) ||
 		opts.maxDelayMs < 0 ||
+		opts.maxDelayMs > 2_147_483_647 ||
 		!Number.isFinite(opts.initialDelayMs) ||
-		opts.initialDelayMs < 0
+		opts.initialDelayMs < 0 ||
+		opts.initialDelayMs > 2_147_483_647
 	) {
-		throw new Error("RetryOptions.*Delay must be finite and non-negative");
+		throw new Error("RetryOptions.*Delay must be finite, non-negative and <= 2147483647");
 	}
 	if (!Number.isFinite(opts.factor) || opts.factor <= 0) {
 		throw new Error("RetryOptions.factor must be a positive finite number");

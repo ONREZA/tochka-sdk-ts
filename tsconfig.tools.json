@@ -4,5 +4,5 @@
 		"noEmit": true,
 		"types": ["@types/bun"]
 	},
-	"include": ["tools/**/*.ts"]
+	"include": ["tools/**/*.ts", "packages/tochka-sdk/test/**/*.ts"]
 }

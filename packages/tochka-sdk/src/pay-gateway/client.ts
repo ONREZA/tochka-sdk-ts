@@ -82,8 +82,11 @@ export class PayGatewayClient {
 		if (baseUrl.pathname !== "/" && baseUrl.pathname !== "") {
 			throw new Error("PayGatewayClient: baseUrl must be an origin without a path");
 		}
-		if (opts.timeoutMs !== undefined && (!Number.isFinite(opts.timeoutMs) || opts.timeoutMs < 0)) {
-			throw new Error("PayGatewayClient: timeoutMs must be finite and non-negative");
+		if (
+			opts.timeoutMs !== undefined &&
+			(!Number.isFinite(opts.timeoutMs) || opts.timeoutMs < 0 || opts.timeoutMs > 2_147_483_647)
+		) {
+			throw new Error("PayGatewayClient: timeoutMs must be finite, non-negative and <= 2147483647");
 		}
 		for (const pattern of opts.signedPaths ?? []) {
 			if (pattern instanceof RegExp && (pattern.global || pattern.sticky)) {
@@ -200,6 +203,7 @@ export class PayGatewayClient {
 				method: upperMethod,
 				payload: parsed && typeof parsed === "object" ? (parsed as TochkaErrorPayload) : undefined,
 				rawBody: text,
+				retryAfterMs: parseRetryAfter(response.headers.get("retry-after")),
 			});
 		}
 		if (response.ok && parsed !== undefined && typeof parsed !== "object") {
@@ -276,7 +280,12 @@ export class PayGatewayClient {
 					...(opts.body !== undefined ? { body: opts.body } : {}),
 					signal: ac.signal,
 				});
-				if (!retry?.retryableStatuses.has(response.status) || attempt >= maxAttempts) {
+				const retryAfter = parseRetryAfter(response.headers.get("retry-after"));
+				if (
+					!retry?.retryableStatuses.has(response.status) ||
+					attempt >= maxAttempts ||
+					(retryAfter !== null && retryAfter > retry.maxDelayMs)
+				) {
 					return { response, text: await response.text() };
 				}
 				await response.body?.cancel().catch(() => undefined);
@@ -302,7 +311,7 @@ export class PayGatewayClient {
 				opts.signal?.removeEventListener("abort", forwardAbort);
 			}
 			if (!retry) throw new Error("PayGatewayClient.doRequest: unreachable");
-			const retryAfter = parseRetryAfter(response.headers.get("retry-after"), retry.maxDelayMs);
+			const retryAfter = parseRetryAfter(response.headers.get("retry-after"));
 			await sleep(retryAfter ?? computeBackoffMs(attempt, retry), opts.signal);
 		}
 		throw new Error("PayGatewayClient.doRequest: unreachable");

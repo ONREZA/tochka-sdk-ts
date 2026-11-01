@@ -4,9 +4,9 @@ import { PayGatewayClient } from "../../src/pay-gateway/index.js";
 
 interface Captured {
 	url?: string;
-	method?: string;
+	method?: string | undefined;
 	headers?: Record<string, string>;
-	body?: string;
+	body?: string | undefined;
 }
 
 function makeClient(captured: Captured, responseBody: unknown = { qrcId: "q1" }) {
@@ -98,6 +98,7 @@ describe("PayGatewaySbpFunctionalLinksModule", () => {
 		);
 		expect(cap.body).toBeUndefined();
 		expect(res.status).toBe("ACCEPTED");
+		if (!("token" in res)) expect.unreachable();
 		expect(res.token).toBe("TKN");
 	});
 
@@ -106,7 +107,7 @@ describe("PayGatewaySbpFunctionalLinksModule", () => {
 		const pg = makeClient(cap, { status: "REJECTED" });
 		const res = await pg.sbpFunctionalLinks.getTokenizationResult("site-1", "q1", "MERCHANT");
 		expect(res.status).toBe("REJECTED");
-		expect(res.token).toBeUndefined();
+		expect("token" in res).toBe(false);
 	});
 
 	test("POST не повторяется после 503 по умолчанию", async () => {
@@ -117,7 +118,7 @@ describe("PayGatewaySbpFunctionalLinksModule", () => {
 			fetch: (async () => {
 				calls += 1;
 				return new Response("{}", { status: 503 });
-			}) as typeof fetch,
+			}) as unknown as typeof globalThis.fetch,
 		});
 		await expect(
 			pg.sbpFunctionalLinks.create({ siteUid: "site-1", qrcType: "STATIC" }),
@@ -133,7 +134,7 @@ describe("PayGatewaySbpFunctionalLinksModule", () => {
 			fetch: (async () => {
 				calls += 1;
 				throw new TypeError("connection reset");
-			}) as typeof fetch,
+			}) as unknown as typeof globalThis.fetch,
 		});
 		await expect(
 			pg.sbpFunctionalLinks.create({ siteUid: "site-1", qrcType: "STATIC" }),
