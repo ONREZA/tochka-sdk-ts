@@ -4,6 +4,13 @@ Changelog ведётся автоматически через
 [release-please](https://github.com/googleapis/release-please) на основе
 [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.5.1](https://github.com/ONREZA/tochka-sdk-ts/compare/v0.5.0...v0.5.1) (2026-11-01)
+
+
+### 🐛 Bug Fixes
+
+* **tochka-sdk:** align sdk standards ([#26](https://github.com/ONREZA/tochka-sdk-ts/issues/26)) ([7604ece](https://github.com/ONREZA/tochka-sdk-ts/commit/7604ecec4176a81dc760534fe33d4a554e4ad25f))
+
 ## [0.5.0](https://github.com/ONREZA/tochka-sdk-ts/compare/v0.4.0...v0.5.0) (2026-11-01)
 
 
