@@ -9,3 +9,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # Generators and declaration emit still need the TypeScript 6 compiler API.
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
