@@ -11,8 +11,8 @@ TLS-настройки и релизы описаны в [CONTRIBUTING.md](CONTR
   проверки типов, runtime и npm-архива.
 - Не объединяй TypeScript 6 в корне и TypeScript 7 в SDK: генератор использует
   compiler API TypeScript 6. Общие версии зависимостей храни в существующем catalog.
-- SDK переносим между Node 24+, Bun, Deno и Workers: используй fetch/WebCrypto,
-  не добавляй Node-only зависимости в runtime. Строгие настройки типов не ослабляй.
+- SDK переносим между Node 24+, Bun и Workers: используй fetch/WebCrypto,
+  не добавляй Node-only зависимости в runtime. Пакет выпускается только как ESM. Строгие настройки типов не ослабляй.
   Публичные сигнатуры — без `any`; используй `unknown` с сужением типов.
 - Публичные entry points: `src/index.ts`, `src/webhooks/index.ts`,
   `src/pay-gateway/index.ts`, `src/errors/index.ts` внутри `packages/tochka-sdk`.

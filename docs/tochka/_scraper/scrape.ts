@@ -4,7 +4,8 @@ import TurndownService from "turndown";
 // @ts-expect-error no types
 import { gfm } from "turndown-plugin-gfm";
 import { mkdir, writeFile } from "node:fs/promises";
-import { join, dirname, basename } from "node:path";
+import { join, basename } from "node:path";
+import { slugify } from "./slugify.js";
 
 const URLS = process.argv.slice(2).filter((a) => a.startsWith("http"));
 const flagIdx = process.argv.findIndex((a) => a === "--out");
@@ -37,11 +38,6 @@ td.addRule("strip-hash-anchors", {
 		node.nodeName === "A" && ((node as any).getAttribute("class") ?? "").includes("hash-link"),
 	replacement: () => "",
 });
-
-function slugify(url: string, stripPrefix: string): string {
-	const path = new URL(url).pathname.replace(new RegExp(`^${stripPrefix.replace(/\//g, "\\/")}`), "");
-	return (path || "index").replace(/\/$/, "").replace(/\//g, "-");
-}
 
 async function downloadAsset(src: string, baseUrl: string): Promise<string | null> {
 	try {

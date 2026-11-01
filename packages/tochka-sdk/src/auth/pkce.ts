@@ -1,8 +1,7 @@
 /**
  * PKCE (Proof Key for Code Exchange, RFC 7636).
  *
- * Работает кроссрантаймно через `globalThis.crypto.subtle` — Node 24+, Bun, Deno,
- * Cloudflare Workers.
+ * Uses `globalThis.crypto.subtle` across Node 24+, Bun and Cloudflare Workers.
  */
 
 const VERIFIER_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";

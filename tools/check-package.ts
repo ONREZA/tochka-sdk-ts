@@ -40,25 +40,21 @@ try {
 		"README.md",
 		"LICENSE",
 		"dist/index.js",
-		"dist/index.cjs",
 		"dist/index.d.ts",
-		"dist/index.d.cts",
 		"dist/webhooks.js",
-		"dist/webhooks.cjs",
 		"dist/webhooks.d.ts",
-		"dist/webhooks.d.cts",
 		"dist/pay-gateway.js",
-		"dist/pay-gateway.cjs",
 		"dist/pay-gateway.d.ts",
-		"dist/pay-gateway.d.cts",
 		"dist/errors.js",
-		"dist/errors.cjs",
 		"dist/errors.d.ts",
-		"dist/errors.d.cts",
 	];
 	const missing = required.filter((file) => !files.has(file));
 	if (missing.length > 0) {
 		throw new Error(`Package is missing required files: ${missing.join(", ")}`);
+	}
+	const commonJsFiles = [...files].filter((file) => /\.(?:cjs|cts)(?:\.map)?$/.test(file));
+	if (commonJsFiles.length > 0) {
+		throw new Error(`Package contains CommonJS artifacts: ${commonJsFiles.join(", ")}`);
 	}
 	if (!packed?.filename) throw new Error("npm pack did not return a tarball filename");
 
@@ -87,19 +83,20 @@ try {
 	] as const;
 	const script = `
 		const checks = ${JSON.stringify(smoke)};
-		Promise.all(checks.map(async ([name, symbol]) => {
+		await Promise.all(checks.map(async ([name, symbol]) => {
 			const esm = await import(name);
 			if (typeof esm[symbol] !== "function") throw new Error(\`Missing ESM export \${name}.\${symbol}\`);
-			const cjs = require(name);
-			if (typeof cjs[symbol] !== "function") throw new Error(\`Missing CJS export \${name}.\${symbol}\`);
-		})).catch((error) => { console.error(error); process.exit(1); });
+		}));
 	`;
-	const smokeProcess = Bun.spawn(["node", "-e", script], {
-		cwd: consumerRoot,
-		stdout: "inherit",
-		stderr: "inherit",
-	});
-	if ((await smokeProcess.exited) !== 0) throw new Error("Packed import smoke test failed");
+	for (const runtime of ["node", "bun"]) {
+		const smokeProcess = Bun.spawn([runtime, "--input-type=module", "-e", script], {
+			cwd: consumerRoot,
+			stdout: "inherit",
+			stderr: "inherit",
+		});
+		if ((await smokeProcess.exited) !== 0)
+			throw new Error(`Packed import smoke test failed using ${runtime}`);
+	}
 
 	const consumerSource = `
 import { TochkaClient, type PaymentForSign, type SbpCustomerInfo } from "@onreza/tochka-sdk";
@@ -134,9 +131,7 @@ function readMainUpdates(payment: PaymentForSign, customer: SbpCustomerInfo): (s
 const invalidCode: CreateSbpFunctionalLinkRequest = { siteUid: "site", qrcType: "DYNAMIC" };
 void [bank, staticCode, digital, retryForm, deleted, webhook, readPayment, readMainUpdates, invalidCode, TochkaError];
 `;
-	for (const extension of ["mts", "cts"]) {
-		await Bun.write(join(consumerRoot, `consumer.${extension}`), consumerSource);
-	}
+	await Bun.write(join(consumerRoot, "consumer.mts"), consumerSource);
 	for (const compilerRoot of [resolve(PACKAGE_ROOT, "../.."), PACKAGE_ROOT]) {
 		const compiler = Bun.spawn(
 			[
@@ -153,7 +148,6 @@ void [bank, staticCode, digital, retryForm, deleted, webhook, readPayment, readM
 				"--moduleResolution",
 				"nodenext",
 				"consumer.mts",
-				"consumer.cts",
 			],
 			{ cwd: consumerRoot, stdout: "inherit", stderr: "inherit" },
 		);
@@ -162,7 +156,7 @@ void [bank, staticCode, digital, retryForm, deleted, webhook, readPayment, readM
 	}
 
 	console.log(
-		`✓ Package contains ${files.size} files; fresh ESM/CJS imports and consumer types passed`,
+		`✓ Package contains ${files.size} files; fresh Node/Bun ESM imports and consumer types passed`,
 	);
 } finally {
 	await rm(tempRoot, { recursive: true, force: true });

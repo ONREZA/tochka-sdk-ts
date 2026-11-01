@@ -2,7 +2,7 @@
 
 Типизированный TypeScript SDK для API [Точка Банка](https://developers.tochka.com/).
 
-Работает в Node 24+, Bun, Deno, Cloudflare Workers. Публикуется в npm.
+Работает в Node 24+, Bun, Cloudflare Workers. Публикуется в npm.
 
 ## Возможности
 
@@ -179,7 +179,8 @@ const operation = await pg.payments.create({
 - `@onreza/tochka-sdk/pay-gateway` — PCI-клиент с подписью
 - `@onreza/tochka-sdk/errors` — иерархия ошибок
 
-Всё собрано как ESM + CJS с типами.
+Пакет поставляется только как ESM с типами TypeScript. Используйте `import`;
+CommonJS-сборки больше нет.
 
 ## Обработка ошибок
 
