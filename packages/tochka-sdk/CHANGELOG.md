@@ -4,6 +4,17 @@ Changelog ведётся автоматически через
 [release-please](https://github.com/googleapis/release-please) на основе
 [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.5.0](https://github.com/ONREZA/tochka-sdk-ts/compare/v0.4.0...v0.5.0) (2026-11-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* **tochka-sdk:** remove CommonJS builds and Deno support
+
+### ✨ Features
+
+* **tochka-sdk:** use esm-only packages ([#24](https://github.com/ONREZA/tochka-sdk-ts/issues/24)) ([f346335](https://github.com/ONREZA/tochka-sdk-ts/commit/f3463352a82b0ee72bea4c522347dcf5adde2083))
+
 ## [0.4.0](https://github.com/ONREZA/tochka-sdk-ts/compare/v0.3.0...v0.4.0) (2026-11-01)
 
 
