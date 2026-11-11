@@ -58,7 +58,7 @@
     "test:integration": "bun test test/sandbox"
   },
   "dependencies": {
-    "jose": "6.2.14",
+    "jose": "6.2.16",
     "openapi-fetch": "0.17.0"
   },
   "devDependencies": {
