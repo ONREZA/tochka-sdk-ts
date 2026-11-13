@@ -8091,6 +8091,9 @@
               },
               {
                 "$ref": "#/components/schemas/SbpCashRegisterQrcPaymentMethodResult"
+              },
+              {
+                "$ref": "#/components/schemas/YandexPaymentMethodResult"
               }
             ]
           },
@@ -8114,6 +8117,9 @@
             "oneOf": [
               {
                 "$ref": "#/components/schemas/ThreeDSRequirements"
+              },
+              {
+                "$ref": "#/components/schemas/YandexRequirements"
               }
             ]
           },
@@ -8576,6 +8582,74 @@
               "changedDateTime": {
                 "type": "string",
                 "format": "date-time"
+              }
+            }
+          }
+        ]
+      },
+      "YandexPaymentMethodResult": {
+        "required": [
+          "captureMode",
+          "capturedAmount",
+          "type"
+        ],
+        "type": "object",
+        "description": "YANDEX",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PaymentMethodResultDTO"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "captureMode": {
+                "type": "string",
+                "description": "Признак двухстадийного сценария: \n- `AUTO` — подтверждение платежа производится автоматически;  \n- `MANUAL` — требуется подтверждение платежа последующим запросом.\n На подтверждение двустадийного платежа у клиента есть ровно 3 дня плюс погрешность в 10 секунд,\n по истечению которых платёж будет автоматически подтверждён.\n Например, платёж был проведён  `20.05.2025 14:45:05.`\n Тогда автоподтверждение произойдёт в промежутке  `23.05.2025 14:45:05`-`23.05.2025 14:45:15`\n Обратите внимание, что возможно изменение сценария автоматического подтверждения на автоматическую отмену\n по истечению срока с помощью менеджеров сопровождения. \n Срок автоматического действия может быть скорректирован в меньшую сторону\n менеджером сопровождения, увеличение срока автоматического действия требует дополнительного согласования.",
+                "enum": [
+                  "AUTO",
+                  "MANUAL"
+                ]
+              },
+              "capturedAmount": {
+                "$ref": "#/components/schemas/CapturedAmount"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "CARD",
+                  "SAVED_CARD",
+                  "SBP",
+                  "SBP_TOKEN",
+                  "SBP_NSPK_TOKEN",
+                  "SBP_CASH_REGISTER_QRC",
+                  "SBP_CUSTOMER_PRESENTED_QR",
+                  "DIGITAL_RUBLE",
+                  "DIGITAL_RUBLE_CASH_REGISTER_QRC",
+                  "YANDEX"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "YandexRequirements": {
+        "required": [
+          "paymentUrl"
+        ],
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RequirementsDTO"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "paymentUrl": {
+                "maxLength": 2083,
+                "minLength": 1,
+                "pattern": "^https?://[-a-zA-Z0-9¡-￿+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9¡-￿+&@#/%=~_|]",
+                "type": "string",
+                "description": "Ссылка на оплату заказа в Яндекс Пэй"
               }
             }
           }
@@ -9063,7 +9137,8 @@
           "type": {
             "type": "string",
             "enum": [
-              "THREE_DS"
+              "THREE_DS",
+              "YANDEX"
             ]
           }
         },
