@@ -3,7 +3,7 @@
   "info": {
     "title": "Tochka.API",
     "description": "Подключая API, вы соглашаетесь на условия [оферты](https://tochka.com/links/offer-open-api)\n\n[Скачать](https://enter.tochka.com/doc/openapi/swagger.json) OpenAPI спецификацию\n",
-    "version": "v1.102.2-stable"
+    "version": "v1.103.2-stable"
   },
   "servers": [
     {
@@ -10639,7 +10639,8 @@
           "ReadStatementsMcp",
           "CreatePaymentForSignMcp",
           "ReadFeedbackData",
-          "EditFeedbackData"
+          "EditFeedbackData",
+          "ManageClicquotData"
         ],
         "title": "ConsentTypeEnum"
       },
@@ -11342,7 +11343,8 @@
           "ReadStatementsMcp",
           "CreatePaymentForSignMcp",
           "ReadFeedbackData",
-          "EditFeedbackData"
+          "EditFeedbackData",
+          "ManageClicquotData"
         ],
         "title": "ExternalConsentTypeEnum"
       },

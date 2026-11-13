@@ -1009,7 +1009,7 @@ export type components = {
         };
         CompleteRequestDTO: {
             /** @enum {string} */
-            type: "THREE_DS";
+            type: "THREE_DS" | "YANDEX";
         };
         /** @description Кассовый УПК */
         CreateCashRegisterQrCodeRequest: {
@@ -1520,7 +1520,7 @@ export type components = {
              * @example 12EKN0170494C67
              */
             orderUid?: string;
-            paymentMethod: components["schemas"]["CardPaymentMethodResult"] | components["schemas"]["DigitalRubleCashRegisterQrcPaymentMethodResult"] | components["schemas"]["DigitalRublePaymentMethodResult"] | components["schemas"]["SBPCustomerPresentedQRPaymentMethodResult"] | components["schemas"]["SBPPaymentMethodResult"] | components["schemas"]["SBPTokenPaymentMethodResult"] | components["schemas"]["SavedCardPaymentMethodResult"] | components["schemas"]["SbpCashRegisterQrcPaymentMethodResult"];
+            paymentMethod: components["schemas"]["CardPaymentMethodResult"] | components["schemas"]["DigitalRubleCashRegisterQrcPaymentMethodResult"] | components["schemas"]["DigitalRublePaymentMethodResult"] | components["schemas"]["SBPCustomerPresentedQRPaymentMethodResult"] | components["schemas"]["SBPPaymentMethodResult"] | components["schemas"]["SBPTokenPaymentMethodResult"] | components["schemas"]["SavedCardPaymentMethodResult"] | components["schemas"]["SbpCashRegisterQrcPaymentMethodResult"] | components["schemas"]["YandexPaymentMethodResult"];
             /**
              * @description Уникальный идентификатор платежа в информационной системе ТСП
              *
@@ -1530,7 +1530,7 @@ export type components = {
              */
             paymentUid: string;
             refundedAmount: components["schemas"]["RefundedAmount"];
-            requirements?: components["schemas"]["ThreeDSRequirements"];
+            requirements?: components["schemas"]["ThreeDSRequirements"] | components["schemas"]["YandexRequirements"];
             status: components["schemas"]["Completed"] | components["schemas"]["Declined"] | components["schemas"]["Waiting"];
         };
         PaymentResponseDTOWrapped: {
@@ -2506,6 +2506,31 @@ export type components = {
         WrappedRequestDTORefundRetryRequestDTO: {
             Data: components["schemas"]["RefundRetryRequestDTO"];
         };
+        /** @description YANDEX */
+        YandexPaymentMethodResult: WithRequired<components["schemas"]["PaymentMethodResultDTO"], "type"> & {
+            capturedAmount: components["schemas"]["CapturedAmount"];
+            /**
+             * @description Признак двухстадийного сценария:
+             *     - `AUTO` — подтверждение платежа производится автоматически;
+             *     - `MANUAL` — требуется подтверждение платежа последующим запросом.
+             *      На подтверждение двустадийного платежа у клиента есть ровно 3 дня плюс погрешность в 10 секунд,
+             *      по истечению которых платёж будет автоматически подтверждён.
+             *      Например, платёж был проведён  `20.05.2025 14:45:05.`
+             *      Тогда автоподтверждение произойдёт в промежутке  `23.05.2025 14:45:05`-`23.05.2025 14:45:15`
+             *      Обратите внимание, что возможно изменение сценария автоматического подтверждения на автоматическую отмену
+             *      по истечению срока с помощью менеджеров сопровождения.
+             *      Срок автоматического действия может быть скорректирован в меньшую сторону
+             *      менеджером сопровождения, увеличение срока автоматического действия требует дополнительного согласования.
+             * @enum {string}
+             */
+            captureMode: "AUTO" | "MANUAL";
+            /** @enum {string} */
+            type: "CARD" | "SAVED_CARD" | "SBP" | "SBP_TOKEN" | "SBP_NSPK_TOKEN" | "SBP_CASH_REGISTER_QRC" | "SBP_CUSTOMER_PRESENTED_QR" | "DIGITAL_RUBLE" | "DIGITAL_RUBLE_CASH_REGISTER_QRC" | "YANDEX";
+        };
+        YandexRequirements: components["schemas"]["RequirementsDTO"] & {
+            /** @description Ссылка на оплату заказа в Яндекс Пэй */
+            paymentUrl: string;
+        };
     };
     responses: never;
     parameters: {
@@ -2691,6 +2716,8 @@ export type SchemaWrappedRequestDtoCreatePaymentRequestDto = components['schemas
 export type SchemaWrappedRequestDtoCreateQrCodeRequestDto = components['schemas']['WrappedRequestDTOCreateQRCodeRequestDTO'];
 export type SchemaWrappedRequestDtoRefundRequestDto = components['schemas']['WrappedRequestDTORefundRequestDTO'];
 export type SchemaWrappedRequestDtoRefundRetryRequestDto = components['schemas']['WrappedRequestDTORefundRetryRequestDTO'];
+export type SchemaYandexPaymentMethodResult = components['schemas']['YandexPaymentMethodResult'];
+export type SchemaYandexRequirements = components['schemas']['YandexRequirements'];
 export type ParameterAuthorizationHeader = components['parameters']['authorizationHeader'];
 export type ParameterCaptureUid = components['parameters']['captureUid'];
 export type ParameterInvoiceUid = components['parameters']['invoiceUid'];
