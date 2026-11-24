@@ -23,6 +23,46 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/{apiVersion}/sites/{siteUid}/digital-ruble/tokenization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Создание ссылки для привязки счёта цифрового рубля
+         * @description Создать информационную ссылку (УПК) для привязки счёта цифрового рубля Плательщика без оплаты
+         */
+        post: operations["createTokenization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/{apiVersion}/sites/{siteUid}/digital-ruble/tokenization/{qrcId}/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Запрос результата привязки счёта цифрового рубля
+         * @description Получить результат выполнения привязки счёта цифрового рубля по ранее зарегистрированному Универсальному платёжному коду
+         */
+        get: operations["getTokenizationResult_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/{apiVersion}/sites/{siteUid}/invoices": {
         parameters: {
             query?: never;
@@ -1009,7 +1049,7 @@ export type components = {
         };
         CompleteRequestDTO: {
             /** @enum {string} */
-            type: "THREE_DS";
+            type: "THREE_DS" | "YANDEX";
         };
         /** @description Кассовый УПК */
         CreateCashRegisterQrCodeRequest: {
@@ -1095,7 +1135,7 @@ export type components = {
              * @example 12EKN0170494C67
              */
             orderUid?: string;
-            paymentMethod: components["schemas"]["CardPaymentMethod"] | components["schemas"]["SBPCustomerPresentedQRPaymentMethod"] | components["schemas"]["SavedCardPaymentMethod"] | components["schemas"]["SbpGatewayTokenPaymentMethod"] | components["schemas"]["SbpNspkTokenPaymentMethod"];
+            paymentMethod: components["schemas"]["CardPaymentMethod"] | components["schemas"]["DigitalRubleTokenPaymentMethod"] | components["schemas"]["SBPCustomerPresentedQRPaymentMethod"] | components["schemas"]["SavedCardPaymentMethod"] | components["schemas"]["SbpGatewayTokenPaymentMethod"] | components["schemas"]["SbpNspkTokenPaymentMethod"] | components["schemas"]["YandexPaymentMethod"];
             /**
              * @description Уникальный идентификатор платежа в информационной системе ТСП
              * @example 977639EE70494C67
@@ -1282,6 +1322,106 @@ export type components = {
             operationId?: string;
             /** @enum {string} */
             type: "DIGITAL_RUBLE";
+        };
+        /** @description Информационная ссылка для привязки счёта цифрового рубля Плательщика (без оплаты) */
+        DigitalRubleTokenizationCreate: {
+            /**
+             * @description URL отправки уведомления об операции
+             * @example https://test.tochkapay.com/notification
+             */
+            callbackUrl?: string;
+            customer?: components["schemas"]["CustomerDTO"];
+            imageParams?: components["schemas"]["QRCodeImageCreationParamsDTO"];
+            /** @description Уникальный идентификатор Универсального платёжного кода в информационной системе ТСП */
+            merchantQrcId?: string;
+            /**
+             * @description Строка с json, содержащим дополнительные поля с произвольной информацией.
+             *      Пример формата: `"{\"property1\": \"string\"}"`
+             * @example {"key1":"value1","key2":"value2"}
+             */
+            metadata?: string;
+            paymentToken: components["schemas"]["DigitalRubleTokenizationParams"];
+            /**
+             * @description Ссылка для автоматического возврата Плательщика из приложения Банка в приложение или на сайт ТСП
+             * @example https://exampletsp.io/qwertyui
+             */
+            redirectUrl?: string;
+            /**
+             * Format: int32
+             * @description Срок жизни УПК в минутах
+             */
+            ttl?: number;
+        };
+        /** @description Параметры для привязки счёта цифрового рубля Плательщика */
+        DigitalRubleTokenizationParams: {
+            /**
+             * @description Назначение привязки счёта Плательщика
+             * @example Подписка на сервис онлайн-кинотеатра
+             */
+            tokenizationPurpose: string;
+        };
+        DigitalRubleTokenizationResult: {
+            /** @description Уникальный идентификатор Универсального платёжного кода в информационной системе ТСП */
+            merchantQrcId?: string;
+            /**
+             * @description Строка с json, содержащим дополнительные поля с произвольной информацией.
+             *      Пример формата: `"{\"property1\": \"string\"}"`
+             * @example {"key1":"value1","key2":"value2"}
+             */
+            metadata: string;
+            /**
+             * @description Идентификатор УПК
+             * @example AS1000670LSS7DN18SJQDNP4B05KLJL2
+             */
+            qrcId: string;
+            /**
+             * @description Статус привязки счёта цифрового рубля
+             * @example ACCEPTED
+             */
+            status: string;
+        };
+        DigitalRubleTokenizationResultAccepted: WithRequired<components["schemas"]["DigitalRubleTokenizationResult"], "metadata" | "qrcId" | "status"> & {
+            /**
+             * @example ACCEPTED
+             * @enum {string}
+             */
+            status: "ACCEPTED";
+            /**
+             * @description Идентификатор привязки счёта цифрового рубля Плательщика
+             * @example 70LSS7DN18SJQRS10006DNPKLJL24B05
+             */
+            token: string;
+        };
+        DigitalRubleTokenizationResultRejected: WithRequired<components["schemas"]["DigitalRubleTokenizationResult"], "metadata" | "qrcId" | "status"> & {
+            /**
+             * @example REJECTED
+             * @enum {string}
+             */
+            status: "REJECTED";
+        };
+        DigitalRubleTokenizationResultResponseDtoWrapped: {
+            Data: components["schemas"]["DigitalRubleTokenizationResultAccepted"] | components["schemas"]["DigitalRubleTokenizationResultRejected"];
+            /** @description Links */
+            Links: {
+                /** @example https://enter.tochka.com/uapi/pay */
+                self: string;
+            };
+            Meta: {
+                /** Format: int32 */
+                totalPages: number;
+            };
+        };
+        DigitalRubleTokenPaymentMethod: WithRequired<components["schemas"]["PaymentMethodDTO"], "type"> & {
+            /**
+             * @description Идентификатор привязки счёта цифрового рубля Плательщика
+             * @example 70LSS7DN18SJQRS10006DNPKLJL24B05
+             */
+            token: string;
+            /**
+             * @description Тип платёжного метода
+             * @enum {string}
+             */
+            type: "DIGITAL_RUBLE_TOKEN";
         };
         /** @description Описание ошибки валидации конкретного поля */
         ErrorDetailsDTO: {
@@ -1520,7 +1660,7 @@ export type components = {
              * @example 12EKN0170494C67
              */
             orderUid?: string;
-            paymentMethod: components["schemas"]["CardPaymentMethodResult"] | components["schemas"]["DigitalRubleCashRegisterQrcPaymentMethodResult"] | components["schemas"]["DigitalRublePaymentMethodResult"] | components["schemas"]["SBPCustomerPresentedQRPaymentMethodResult"] | components["schemas"]["SBPPaymentMethodResult"] | components["schemas"]["SBPTokenPaymentMethodResult"] | components["schemas"]["SavedCardPaymentMethodResult"] | components["schemas"]["SbpCashRegisterQrcPaymentMethodResult"];
+            paymentMethod: components["schemas"]["CardPaymentMethodResult"] | components["schemas"]["DigitalRubleCashRegisterQrcPaymentMethodResult"] | components["schemas"]["DigitalRublePaymentMethodResult"] | components["schemas"]["SBPCustomerPresentedQRPaymentMethodResult"] | components["schemas"]["SBPPaymentMethodResult"] | components["schemas"]["SBPTokenPaymentMethodResult"] | components["schemas"]["SavedCardPaymentMethodResult"] | components["schemas"]["SbpCashRegisterQrcPaymentMethodResult"] | components["schemas"]["YandexPaymentMethodResult"];
             /**
              * @description Уникальный идентификатор платежа в информационной системе ТСП
              *
@@ -1530,7 +1670,7 @@ export type components = {
              */
             paymentUid: string;
             refundedAmount: components["schemas"]["RefundedAmount"];
-            requirements?: components["schemas"]["ThreeDSRequirements"];
+            requirements?: components["schemas"]["ThreeDSRequirements"] | components["schemas"]["YandexRequirements"];
             status: components["schemas"]["Completed"] | components["schemas"]["Declined"] | components["schemas"]["Waiting"];
         };
         PaymentResponseDTOWrapped: {
@@ -2500,11 +2640,57 @@ export type components = {
         WrappedRequestDTOCreateQRCodeRequestDTO: {
             Data: components["schemas"]["QRCodeDynamic"] | components["schemas"]["QRCodeStatic"] | components["schemas"]["QRCodeToken"];
         };
+        WrappedRequestDTODigitalRubleTokenizationCreate: {
+            Data: components["schemas"]["DigitalRubleTokenizationCreate"];
+        };
         WrappedRequestDTORefundRequestDTO: {
             Data: components["schemas"]["RefundRequestDTO"];
         };
         WrappedRequestDTORefundRetryRequestDTO: {
             Data: components["schemas"]["RefundRetryRequestDTO"];
+        };
+        YandexCartItem: {
+            productId: string;
+            quantity: number;
+            title: string;
+            total: number;
+        };
+        YandexPaymentMethod: WithRequired<components["schemas"]["PaymentMethodDTO"], "type"> & {
+            /** @enum {string} */
+            cardCaptureMode: "AUTO" | "MANUAL";
+            cart: components["schemas"]["YandexCartItem"][];
+            declineUrl: string;
+            successUrl: string;
+            /** Format: int32 */
+            ttl?: number;
+            /** @enum {string} */
+            type: "CARD" | "SAVED_CARD" | "SBP" | "SBP_TOKEN" | "SBP_NSPK_TOKEN" | "SBP_CASH_REGISTER_QRC" | "SBP_CUSTOMER_PRESENTED_QR" | "DIGITAL_RUBLE" | "DIGITAL_RUBLE_CASH_REGISTER_QRC" | "DIGITAL_RUBLE_TOKEN" | "YANDEX";
+        };
+        /** @description YANDEX */
+        YandexPaymentMethodResult: WithRequired<components["schemas"]["PaymentMethodResultDTO"], "type"> & {
+            capturedAmount: components["schemas"]["CapturedAmount"];
+            /**
+             * @description Применяется, только когда покупатель выбирает оплату картой в Яндекс Пэй.
+             *     Признак двухстадийного сценария:
+             *     - `AUTO` — подтверждение платежа производится автоматически;
+             *     - `MANUAL` — требуется подтверждение платежа последующим запросом.
+             *      На подтверждение двустадийного платежа у клиента есть ровно 3 дня плюс погрешность в 10 секунд,
+             *      по истечению которых платёж будет автоматически подтверждён.
+             *      Например, платёж был проведён  `20.05.2025 14:45:05.`
+             *      Тогда автоподтверждение произойдёт в промежутке  `23.05.2025 14:45:05`-`23.05.2025 14:45:15`
+             *      Обратите внимание, что возможно изменение сценария автоматического подтверждения на автоматическую отмену
+             *      по истечению срока с помощью менеджеров сопровождения.
+             *      Срок автоматического действия может быть скорректирован в меньшую сторону
+             *      менеджером сопровождения, увеличение срока автоматического действия требует дополнительного согласования.
+             * @enum {string}
+             */
+            cardCaptureMode: "AUTO" | "MANUAL";
+            /** @enum {string} */
+            type: "CARD" | "SAVED_CARD" | "SBP" | "SBP_TOKEN" | "SBP_NSPK_TOKEN" | "SBP_CASH_REGISTER_QRC" | "SBP_CUSTOMER_PRESENTED_QR" | "DIGITAL_RUBLE" | "DIGITAL_RUBLE_CASH_REGISTER_QRC" | "DIGITAL_RUBLE_TOKEN" | "YANDEX";
+        };
+        YandexRequirements: components["schemas"]["RequirementsDTO"] & {
+            /** @description Ссылка на оплату заказа в Яндекс Пэй */
+            paymentUrl: string;
         };
     };
     responses: never;
@@ -2597,6 +2783,13 @@ export type SchemaDigitalRubleCashRegisterQrcPaymentMethodResult = components['s
 export type SchemaDigitalRubleCashRegisterQrcRefundMethodResultDto = components['schemas']['DigitalRubleCashRegisterQrcRefundMethodResultDto'];
 export type SchemaDigitalRublePaymentMethodResult = components['schemas']['DigitalRublePaymentMethodResult'];
 export type SchemaDigitalRubleRefundMethodResultDto = components['schemas']['DigitalRubleRefundMethodResultDTO'];
+export type SchemaDigitalRubleTokenizationCreate = components['schemas']['DigitalRubleTokenizationCreate'];
+export type SchemaDigitalRubleTokenizationParams = components['schemas']['DigitalRubleTokenizationParams'];
+export type SchemaDigitalRubleTokenizationResult = components['schemas']['DigitalRubleTokenizationResult'];
+export type SchemaDigitalRubleTokenizationResultAccepted = components['schemas']['DigitalRubleTokenizationResultAccepted'];
+export type SchemaDigitalRubleTokenizationResultRejected = components['schemas']['DigitalRubleTokenizationResultRejected'];
+export type SchemaDigitalRubleTokenizationResultResponseDtoWrapped = components['schemas']['DigitalRubleTokenizationResultResponseDtoWrapped'];
+export type SchemaDigitalRubleTokenPaymentMethod = components['schemas']['DigitalRubleTokenPaymentMethod'];
 export type SchemaErrorDetailsDto = components['schemas']['ErrorDetailsDTO'];
 export type SchemaErrorResponseDto = components['schemas']['ErrorResponseDTO'];
 export type SchemaExpiredStatus = components['schemas']['ExpiredStatus'];
@@ -2689,8 +2882,13 @@ export type SchemaWrappedRequestDtoCreateCashRegisterQrCodeRequest = components[
 export type SchemaWrappedRequestDtoCreateInvoiceRequestDto = components['schemas']['WrappedRequestDTOCreateInvoiceRequestDTO'];
 export type SchemaWrappedRequestDtoCreatePaymentRequestDto = components['schemas']['WrappedRequestDTOCreatePaymentRequestDTO'];
 export type SchemaWrappedRequestDtoCreateQrCodeRequestDto = components['schemas']['WrappedRequestDTOCreateQRCodeRequestDTO'];
+export type SchemaWrappedRequestDtoDigitalRubleTokenizationCreate = components['schemas']['WrappedRequestDTODigitalRubleTokenizationCreate'];
 export type SchemaWrappedRequestDtoRefundRequestDto = components['schemas']['WrappedRequestDTORefundRequestDTO'];
 export type SchemaWrappedRequestDtoRefundRetryRequestDto = components['schemas']['WrappedRequestDTORefundRetryRequestDTO'];
+export type SchemaYandexCartItem = components['schemas']['YandexCartItem'];
+export type SchemaYandexPaymentMethod = components['schemas']['YandexPaymentMethod'];
+export type SchemaYandexPaymentMethodResult = components['schemas']['YandexPaymentMethodResult'];
+export type SchemaYandexRequirements = components['schemas']['YandexRequirements'];
 export type ParameterAuthorizationHeader = components['parameters']['authorizationHeader'];
 export type ParameterCaptureUid = components['parameters']['captureUid'];
 export type ParameterInvoiceUid = components['parameters']['invoiceUid'];
@@ -2735,6 +2933,448 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UnitWrapped"];
+                };
+            };
+            /** @description HTTPBadRequest */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "code": "400",
+                     *       "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                     *       "message": "REQUEST_VALIDATION_ERROR",
+                     *       "Errors": [
+                     *         {
+                     *           "errorCode": "data.amount",
+                     *           "message": "Incorrect operation amount. Should have correct number of fraction digits for currency RUB.",
+                     *           "url": "https://enter.tochka.com/uapi/pay"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "code": "401",
+                     *       "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                     *       "message": "INVALID_TOKEN",
+                     *       "Errors": [
+                     *         {
+                     *           "errorCode": "TOKEN_EXPIRED",
+                     *           "message": "The token is expired, issue a new one",
+                     *           "url": "https://enter.tochka.com/uapi/pay"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "code": "403",
+                     *       "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                     *       "message": "OPERATION_FORBIDDEN",
+                     *       "Errors": [
+                     *         {
+                     *           "errorCode": "SIGNATURE_VERIFICATION_ERROR",
+                     *           "message": "Invalid signature format",
+                     *           "url": "https://enter.tochka.com/uapi/pay"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "code": "404",
+                     *       "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                     *       "message": "ENTITY_NOT_FOUND",
+                     *       "Errors": [
+                     *         {
+                     *           "errorCode": "MERCHANT_SITE_NOT_FOUND",
+                     *           "message": "Can not found merchant site with siteUid:<Some site uid>.",
+                     *           "url": "https://enter.tochka.com/uapi/pay"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description Locked */
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "code": "423",
+                     *       "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                     *       "message": "OPERATION_LOCKED",
+                     *       "Errors": [
+                     *         {
+                     *           "errorCode": "PAYMENT_LOCKED",
+                     *           "message": "Payment with paymentUid:<some payment uid> already locked by parallel operation.",
+                     *           "url": "https://enter.tochka.com/uapi/pay"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "code": "500",
+                     *       "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                     *       "message": "INTERNAL_ERROR",
+                     *       "Errors": [
+                     *         {
+                     *           "errorCode": "CARD_PROCESSING_ERROR",
+                     *           "message": "Unexpected error on card processing side.",
+                     *           "url": "https://enter.tochka.com/uapi/pay"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "code": "501",
+                     *       "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                     *       "message": "UNSUPPORTED_OPERATION",
+                     *       "Errors": [
+                     *         {
+                     *           "errorCode": "UNSUPPORTED_PAYMENT_METHOD",
+                     *           "message": "Payment method APPLE_PAY not supported by processing.",
+                     *           "url": "https://enter.tochka.com/uapi/pay"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "code": "503",
+                     *       "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                     *       "message": "UNDERLYING_SERVICE_UNAVAILABLE",
+                     *       "Errors": [
+                     *         {
+                     *           "errorCode": "CONNECTION_BROKEN",
+                     *           "message": "Service unavailable, please try operation later.",
+                     *           "url": "https://enter.tochka.com/uapi/pay"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    createTokenization: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Токен для аутентификации запросов
+                 * @example Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6...
+                 */
+                Authorization: components["parameters"]["authorizationHeader"];
+            };
+            path: {
+                /** @description Версия API */
+                apiVersion: "v1.0";
+                /**
+                 * @description ID Сайта
+                 * @example tochka-site-00
+                 */
+                siteUid: components["parameters"]["siteUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WrappedRequestDTODigitalRubleTokenizationCreate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QRCodeResponseDTOWrapped"];
+                };
+            };
+            /** @description HTTPBadRequest */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "code": "400",
+                     *       "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                     *       "message": "REQUEST_VALIDATION_ERROR",
+                     *       "Errors": [
+                     *         {
+                     *           "errorCode": "data.amount",
+                     *           "message": "Incorrect operation amount. Should have correct number of fraction digits for currency RUB.",
+                     *           "url": "https://enter.tochka.com/uapi/pay"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "code": "401",
+                     *       "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                     *       "message": "INVALID_TOKEN",
+                     *       "Errors": [
+                     *         {
+                     *           "errorCode": "TOKEN_EXPIRED",
+                     *           "message": "The token is expired, issue a new one",
+                     *           "url": "https://enter.tochka.com/uapi/pay"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "code": "403",
+                     *       "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                     *       "message": "OPERATION_FORBIDDEN",
+                     *       "Errors": [
+                     *         {
+                     *           "errorCode": "SIGNATURE_VERIFICATION_ERROR",
+                     *           "message": "Invalid signature format",
+                     *           "url": "https://enter.tochka.com/uapi/pay"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "code": "404",
+                     *       "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                     *       "message": "ENTITY_NOT_FOUND",
+                     *       "Errors": [
+                     *         {
+                     *           "errorCode": "MERCHANT_SITE_NOT_FOUND",
+                     *           "message": "Can not found merchant site with siteUid:<Some site uid>.",
+                     *           "url": "https://enter.tochka.com/uapi/pay"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description Locked */
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "code": "423",
+                     *       "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                     *       "message": "OPERATION_LOCKED",
+                     *       "Errors": [
+                     *         {
+                     *           "errorCode": "PAYMENT_LOCKED",
+                     *           "message": "Payment with paymentUid:<some payment uid> already locked by parallel operation.",
+                     *           "url": "https://enter.tochka.com/uapi/pay"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "code": "500",
+                     *       "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                     *       "message": "INTERNAL_ERROR",
+                     *       "Errors": [
+                     *         {
+                     *           "errorCode": "CARD_PROCESSING_ERROR",
+                     *           "message": "Unexpected error on card processing side.",
+                     *           "url": "https://enter.tochka.com/uapi/pay"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "code": "501",
+                     *       "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                     *       "message": "UNSUPPORTED_OPERATION",
+                     *       "Errors": [
+                     *         {
+                     *           "errorCode": "UNSUPPORTED_PAYMENT_METHOD",
+                     *           "message": "Payment method APPLE_PAY not supported by processing.",
+                     *           "url": "https://enter.tochka.com/uapi/pay"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "code": "503",
+                     *       "id": "c397b21a-d998-4c4d-9471-e60eaf816b87",
+                     *       "message": "UNDERLYING_SERVICE_UNAVAILABLE",
+                     *       "Errors": [
+                     *         {
+                     *           "errorCode": "CONNECTION_BROKEN",
+                     *           "message": "Service unavailable, please try operation later.",
+                     *           "url": "https://enter.tochka.com/uapi/pay"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponseDTO"];
+                };
+            };
+        };
+    };
+    getTokenizationResult_1: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Токен для аутентификации запросов
+                 * @example Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6...
+                 */
+                Authorization: components["parameters"]["authorizationHeader"];
+            };
+            path: {
+                /** @description Версия API */
+                apiVersion: "v1.0";
+                /** @description Идентификатор зарегистрированного УПК */
+                qrcId: string;
+                /**
+                 * @description ID Сайта
+                 * @example tochka-site-00
+                 */
+                siteUid: components["parameters"]["siteUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DigitalRubleTokenizationResultResponseDtoWrapped"];
                 };
             };
             /** @description HTTPBadRequest */

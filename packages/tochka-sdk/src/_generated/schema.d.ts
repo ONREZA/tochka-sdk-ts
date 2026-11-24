@@ -3314,7 +3314,7 @@ export type components = {
          * ConsentTypeEnum
          * @enum {string}
          */
-        ConsentTypeEnum: "ReadAccountsBasic" | "ReadAccountsDetail" | "ReadBalances" | "ReadStatements" | "ReadTransactionsBasic" | "ReadTransactionsCredits" | "ReadTransactionsDebits" | "ReadTransactionsDetail" | "ReadCustomerData" | "ReadSBPData" | "EditSBPData" | "ReadSBPData1C" | "EditSBPData1C" | "CreatePaymentForSign" | "CreatePaymentOrder" | "ReadAcquiringData" | "MakeAcquiringOperation" | "ManageInvoiceData" | "ManageWebhookData" | "MakeCustomer" | "ManageGuarantee" | "ManageEdoData" | "ReadBiApi" | "ReadCustomerDataMcp" | "ReadAccountsMcp" | "ReadBalancesMcp" | "ReadStatementsMcp" | "CreatePaymentForSignMcp" | "ReadFeedbackData" | "EditFeedbackData";
+        ConsentTypeEnum: "ReadAccountsBasic" | "ReadAccountsDetail" | "ReadBalances" | "ReadStatements" | "ReadTransactionsBasic" | "ReadTransactionsCredits" | "ReadTransactionsDebits" | "ReadTransactionsDetail" | "ReadCustomerData" | "ReadSBPData" | "EditSBPData" | "ReadSBPData1C" | "EditSBPData1C" | "CreatePaymentForSign" | "CreatePaymentOrder" | "ReadAcquiringData" | "MakeAcquiringOperation" | "ManageInvoiceData" | "ManageWebhookData" | "MakeCustomer" | "ManageGuarantee" | "ManageEdoData" | "ReadBiApi" | "ReadCustomerDataMcp" | "ReadAccountsMcp" | "ReadBalancesMcp" | "ReadStatementsMcp" | "CreatePaymentForSignMcp" | "ReadFeedbackData" | "EditFeedbackData" | "ManageClicquotData";
         /** ContentAct */
         ContentAct: {
             /** Содержимое акта */
@@ -3668,7 +3668,7 @@ export type components = {
          * ExternalConsentTypeEnum
          * @enum {string}
          */
-        ExternalConsentTypeEnum: "ReadAccountsBasic" | "ReadAccountsDetail" | "ReadBalances" | "ReadStatements" | "ReadTransactionsBasic" | "ReadTransactionsCredits" | "ReadTransactionsDebits" | "ReadTransactionsDetail" | "ReadCustomerData" | "ReadSBPData" | "EditSBPData" | "CreatePaymentForSign" | "CreatePaymentOrder" | "ReadAcquiringData" | "MakeAcquiringOperation" | "ManageInvoiceData" | "ManageWebhookData" | "MakeCustomer" | "ManageGuarantee" | "ManageEdoData" | "ReadBiApi" | "ReadCustomerDataMcp" | "ReadAccountsMcp" | "ReadBalancesMcp" | "ReadStatementsMcp" | "CreatePaymentForSignMcp" | "ReadFeedbackData" | "EditFeedbackData";
+        ExternalConsentTypeEnum: "ReadAccountsBasic" | "ReadAccountsDetail" | "ReadBalances" | "ReadStatements" | "ReadTransactionsBasic" | "ReadTransactionsCredits" | "ReadTransactionsDebits" | "ReadTransactionsDetail" | "ReadCustomerData" | "ReadSBPData" | "EditSBPData" | "CreatePaymentForSign" | "CreatePaymentOrder" | "ReadAcquiringData" | "MakeAcquiringOperation" | "ManageInvoiceData" | "ManageWebhookData" | "MakeCustomer" | "ManageGuarantee" | "ManageEdoData" | "ReadBiApi" | "ReadCustomerDataMcp" | "ReadAccountsMcp" | "ReadBalancesMcp" | "ReadStatementsMcp" | "CreatePaymentForSignMcp" | "ReadFeedbackData" | "EditFeedbackData" | "ManageClicquotData";
         /**
          * ExternalCreditDebitIndicatorEnum
          * @enum {string}
